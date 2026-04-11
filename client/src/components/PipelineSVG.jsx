@@ -53,34 +53,32 @@ const STEP_TO_NODE = {
 
 export default function PipelineSVG({ steps = [], isRunning = false }) {
   const [selectedNode, setSelectedNode] = useState(null);
-  const [animationPhase, setAnimationPhase] = useState(-1);
 
   const getNodeStatus = (node) => {
-    if (isRunning && animationPhase >= 0) {
-      const idx = PIPELINE_NODES.findIndex(n => n.id === node.id);
-      if (idx < animationPhase) return 'PASS';
-      if (idx === animationPhase) return 'PROCESSING';
-      return 'IDLE';
-    }
     const allForNode = steps.filter(s => STEP_TO_NODE[s.step] === node.id);
-    if (allForNode.length === 0) return 'IDLE';
-    if (allForNode.some(s => s.status === 'BLOCK')) return 'BLOCK';
-    return 'PASS';
+    if (allForNode.length > 0) {
+      if (allForNode.some(s => s.status === 'BLOCK')) return 'BLOCK';
+      return 'PASS';
+    }
+    
+    // Node hasn't been reached yet
+    if (!isRunning) return 'IDLE';
+
+    // The node directly after the MOST RECENT step is the one currently Processing
+    const nodeIdx = PIPELINE_NODES.findIndex(n => n.id === node.id);
+    const latestStepName = steps[steps.length - 1]?.step;
+    const latestNodeIdx = PIPELINE_NODES.findIndex(n => n.id === STEP_TO_NODE[latestStepName]);
+    
+    // If no steps yet, node 0 is processing
+    if (steps.length === 0 && nodeIdx === 0) return 'PROCESSING';
+    
+    // If there ARE steps, the next logical node is processing
+    if (steps.length > 0 && nodeIdx === latestNodeIdx + 1) return 'PROCESSING';
+    
+    return 'IDLE';
   };
 
   const getNodeDetails = (node) => steps.filter(s => STEP_TO_NODE[s.step] === node.id);
-
-  useEffect(() => {
-    if (!isRunning) { setAnimationPhase(-1); return; }
-    setAnimationPhase(0);
-    const interval = setInterval(() => {
-      setAnimationPhase(prev => {
-        if (prev >= PIPELINE_NODES.length - 1) { clearInterval(interval); return prev; }
-        return prev + 1;
-      });
-    }, 250);
-    return () => clearInterval(interval);
-  }, [isRunning]);
 
   // Layout: horizontal scroll with compact nodes
   const nodeW = 100, nodeH = 54, gap = 36;

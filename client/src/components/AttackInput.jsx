@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useScan } from '../ScanContext';
 
 /**
  * AttackInput Component
@@ -21,21 +22,10 @@ const HACK_ATTACKS = [
   { name: 'IPv6 Loopback', url: 'http://[::1]:3000/secret' },
 ];
 
-export default function AttackInput({ onScanResult, onScanStart, isScanning }) {
+export default function AttackInput() {
+  const { isScanning, runScan } = useScan();
   const [url, setUrl] = useState('');
   const [hackProgress, setHackProgress] = useState(-1);
-
-  const runScan = async (targetUrl) => {
-    if (!targetUrl) return;
-    onScanStart?.();
-    try {
-      const response = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: targetUrl }) });
-      const data = await response.json();
-      onScanResult?.(data);
-    } catch (err) {
-      onScanResult?.({ url: targetUrl, status: 'ERROR', steps: [], logs: [{ timestamp: new Date().toISOString(), step: 'Network', status: 'ERROR', message: err.message }] });
-    }
-  };
 
   const handleSubmit = (e) => { e.preventDefault(); runScan(url); };
 

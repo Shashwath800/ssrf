@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useScan } from '../ScanContext';
 import PipelineSVG from '../components/PipelineSVG';
 import AttackInput from '../components/AttackInput';
 import LogsPanel from '../components/LogsPanel';
@@ -22,24 +23,7 @@ const sectionVariants = {
 };
 
 export default function Dashboard() {
-  const [scanResult, setScanResult] = useState(null);
-  const [allLogs, setAllLogs] = useState([]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanHistory, setScanHistory] = useState([]);
-
-  const handleScanStart = useCallback(() => setIsScanning(true), []);
-
-  const handleScanResult = useCallback((result) => {
-    setIsScanning(false);
-    setScanResult(result);
-    setAllLogs(prev => [
-      ...prev,
-      { timestamp: new Date().toISOString(), step: 'Scanner', status: 'INFO', message: `─── Scanning: ${result.url} ───` },
-      ...result.logs,
-      { timestamp: new Date().toISOString(), step: 'Result', status: result.status === 'BLOCKED' ? 'BLOCK' : 'PASS', message: `Final verdict: ${result.status}` },
-    ]);
-    setScanHistory(prev => [...prev, { url: result.url, status: result.status, time: new Date().toLocaleTimeString() }]);
-  }, []);
+  const { isScanning, scanResult, scanHistory } = useScan();
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -100,7 +84,7 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-accent" />Attack Input
             </h2>
-            <AttackInput onScanResult={handleScanResult} onScanStart={handleScanStart} isScanning={isScanning} />
+            <AttackInput />
           </motion.div>
 
           <motion.div custom={1} initial="hidden" animate="visible" variants={sectionVariants}
@@ -146,7 +130,7 @@ export default function Dashboard() {
             <span className="w-2 h-2 rounded-full bg-emerald-500" />Defense Logs
             <span className="text-xs font-normal text-slate-600 ml-2">Real-time pipeline output</span>
           </h2>
-          <LogsPanel logs={allLogs} />
+          <LogsPanel logs={scanResult?.logs || []} />
         </motion.div>
       </main>
 

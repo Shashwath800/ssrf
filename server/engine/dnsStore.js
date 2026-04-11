@@ -40,6 +40,17 @@ const dnsRecords = {
     status: "ACTIVE",
     created: Date.now(),
   },
+  "evil-redirect.attacker.com": {
+    type: "A",
+    mode: "redirect",
+    ips: ["8.8.8.8"], // Initially resolves to safe IP to bypass validator
+    redirectTarget: "http://169.254.169.254/latest/meta-data/",
+    ttl: 300,
+    currentIndex: 0,
+    lastRotated: Date.now(),
+    status: "ACTIVE",
+    created: Date.now(),
+  },
 };
 
 // ── Query Log ──
@@ -109,6 +120,14 @@ function resolveDomain(domain) {
     return { ips: [ip], source: "rebinding", rotated, record };
   }
 
+  if (record.mode === "redirect") {
+    const ip = record.ips[0];
+    addLog(domain, ip, "RESOLVE", {
+      note: `Resolved for Redirect -> ${record.redirectTarget}`
+    });
+    return { ips: [ip], source: "redirect", record };
+  }
+
   return { ips: ["8.8.8.8"], source: "unknown", record };
 }
 
@@ -129,6 +148,7 @@ function addOrUpdateRecord(domain, data) {
     type: data.type || "A",
     mode: data.mode || "static",
     ips: data.ips || ["8.8.8.8"],
+    redirectTarget: data.redirectTarget || "",
     ttl: data.ttl || 300,
     currentIndex: 0,
     lastRotated: Date.now(),

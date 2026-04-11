@@ -5,36 +5,65 @@
  */
 
 const SSRFShield = require('ssrf-shield');
+const dnsStore = require('../engine/dnsStore');
 
 // Create a shared shield instance
-const shield = new SSRFShield();
+const shield = new SSRFShield({
+  // Integrate the real live DNS store from the DNS Resolver page!
+  customDnsResolver: (domain) => {
+    const res = dnsStore.resolveDomain(domain);
+    return {
+      step: "DNS Resolver",
+      status: "PASS",
+      data: {
+        hostname: domain,
+        resolvedIPs: res.ips,
+        source: res.source,
+        redirectTarget: res.record?.redirectTarget,
+        note: `Resolved via live DNS store (${res.source})`
+      }
+    };
+  }
+});
 
-// POST /scan — Run SSRF simulation pipeline on a URL
-function scanUrl(req, res) {
-  const { url } = req.body;
+// GET /scan?url=... — Run SSRF simulation pipeline on a URL using SSE (Server-Sent Events)
+async function scanUrl(req, res) {
+  const url = req.query.url;
 
   if (!url || typeof url !== 'string') {
-    return res.status(400).json({ error: "Missing or invalid 'url' in request body" });
+    return res.status(400).json({ error: "Missing or invalid 'url' query param" });
   }
 
-  const result = shield.scan(url);
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
 
-  res.json({
-    url,
-    status: result.status,
-    steps: result.steps,
-    logs: result.logs,
-    dnsMode: shield.getDnsMode(),
+  // Send an initial event
+  res.write(`data: ${JSON.stringify({ type: 'start', url })}\n\n`);
+
+  // Run the async scan with high delay to simulate slow pipeline (~20-30s total)
+  // Each step takes 1.8s
+  const result = await shield.scan(url, {}, {
+    delayMs: 1800,
+    onStep: async (stepResult) => {
+      // Stream each step exactly as it happens
+      res.write(`data: ${JSON.stringify({ type: 'step', stepResult })}\n\n`);
+    }
   });
+
+  // Finish
+  res.write(`data: ${JSON.stringify({ type: 'done', finalStatus: result.status })}\n\n`);
+  res.end();
 }
 
-// POST /toggle-dns — Toggle DNS rebinding mode
+// POST /toggle-dns — Deprecated (kept for backwards compatibility)
 function toggleDns(req, res) {
   const newMode = shield.toggleDnsMode();
   res.json({ dnsMode: newMode, message: `DNS mode switched to ${newMode}` });
 }
 
-// GET /dns-mode — Get current DNS mode
+// GET /dns-mode — Deprecated
 function getDnsMode(req, res) {
   res.json({ dnsMode: shield.getDnsMode() });
 }

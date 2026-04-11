@@ -121,13 +121,78 @@ function RecordsTable({ records, onDelete, onEdit, onInstantUpdate }) {
   );
 }
 
+function RedirectsTable({ records, onDelete, onEdit }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-slate-700/50 text-slate-500 uppercase tracking-wider">
+            <th className="text-left py-2 px-3 font-semibold">Domain</th>
+            <th className="text-left py-2 px-3 font-semibold">Target (URL or CNAME)</th>
+            <th className="text-right py-2 px-3 font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <AnimatePresence>
+            {records.map((r) => (
+              <motion.tr key={r.domain} layout
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
+                className="border-b border-slate-800/30 hover:bg-white/[0.02] transition-colors"
+              >
+                <td className="py-2.5 px-3 font-mono text-indigo-300 text-[11px]">{r.domain}</td>
+                <td className="py-2.5 px-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-blue-400 text-xs font-bold">302 🔀</span>
+                    <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded text-[10px] font-mono">
+                      {r.redirectTarget}
+                    </span>
+                  </div>
+                </td>
+                <td className="py-2.5 px-3 text-right space-x-2">
+                  <button onClick={() => onEdit(r)} className="text-indigo-400 hover:text-indigo-300 text-[10px] font-semibold">Edit</button>
+                  <button onClick={() => onDelete(r.domain)} className="text-red-400 hover:text-red-300 text-[10px] font-semibold">Delete</button>
+                </td>
+              </motion.tr>
+            ))}
+          </AnimatePresence>
+          {records.length === 0 && (
+            <tr><td colSpan={3} className="py-8 text-center text-slate-600 text-xs">No redirect rules. Add one above.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function RecordForm({ editRecord, onSave, onCancel }) {
   const [domain, setDomain] = useState(editRecord?.domain || '');
   const [ips, setIps] = useState(editRecord?.ips?.join(', ') || '');
   const [ttl, setTtl] = useState(editRecord?.ttl || 1);
   const [mode, setMode] = useState(editRecord?.mode || 'static');
-  useEffect(() => { if (editRecord) { setDomain(editRecord.domain); setIps(editRecord.ips.join(', ')); setTtl(editRecord.ttl); setMode(editRecord.mode); } }, [editRecord]);
-  const handleSubmit = (e) => { e.preventDefault(); onSave({ domain, ips: ips.split(',').map(s => s.trim()).filter(Boolean), ttl: Number(ttl), mode, type: 'A' }); if (!editRecord) { setDomain(''); setIps(''); setTtl(1); setMode('static'); } };
+
+  useEffect(() => { 
+    if (editRecord) { 
+      setDomain(editRecord.domain); 
+      setIps(editRecord.ips.join(', ')); 
+      setTtl(editRecord.ttl); 
+      setMode(editRecord.mode); 
+    } 
+  }, [editRecord]);
+
+  const handleSubmit = (e) => { 
+    e.preventDefault(); 
+    onSave({ 
+      domain, 
+      ips: ips.split(',').map(s => s.trim()).filter(Boolean), 
+      ttl: Number(ttl), 
+      mode, 
+      type: 'A' 
+    }); 
+    if (!editRecord) { 
+      setDomain(''); setIps(''); setTtl(1); setMode('static');
+    } 
+  };
+  
   const ic = "w-full px-3 py-2 bg-bg-primary border border-slate-700/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20";
 
   return (
@@ -135,16 +200,21 @@ function RecordForm({ editRecord, onSave, onCancel }) {
       <div className="grid grid-cols-2 gap-3">
         <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Domain</label>
           <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil.attacker.com" className={ic} required disabled={!!editRecord} /></div>
-        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">IP Address(es) <span className="text-slate-600">comma-separated</span></label>
-          <input value={ips} onChange={e => setIps(e.target.value)} placeholder="8.8.8.8, 169.254.169.254" className={ic} required /></div>
+        <div>
+          <label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">IP Address(es) <span className="text-slate-600">comma-separated</span></label>
+          <input value={ips} onChange={e => setIps(e.target.value)} placeholder="8.8.8.8, 169.254.169.254" className={ic} required />
+        </div>
       </div>
+      
       <div className="grid grid-cols-3 gap-3">
         <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">TTL (seconds)</label>
           <input type="number" min={1} value={ttl} onChange={e => setTtl(e.target.value)} className={ic} /></div>
         <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Mode</label>
           <select value={mode} onChange={e => setMode(e.target.value)} className={`${ic} appearance-none`}>
-            <option value="static">Static</option><option value="rebinding">Rebinding</option>
-          </select></div>
+            <option value="static">Static</option>
+            <option value="rebinding">Rebinding</option>
+          </select>
+        </div>
         <div className="flex items-end gap-2">
           <motion.button type="submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
             className="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-blue-700 text-white text-xs font-bold rounded-lg">
@@ -162,7 +232,59 @@ function RecordForm({ editRecord, onSave, onCancel }) {
   );
 }
 
-function LiveResolution({ domain, ips, currentIP, ttl, ttlRemaining, mode }) {
+function RedirectForm({ editRecord, onSave, onCancel }) {
+  const [domain, setDomain] = useState(editRecord?.domain || '');
+  const [redirectTarget, setRedirectTarget] = useState(editRecord?.redirectTarget || '');
+
+  useEffect(() => { 
+    if (editRecord) { 
+      setDomain(editRecord.domain); 
+      setRedirectTarget(editRecord.redirectTarget || '');
+    } 
+  }, [editRecord]);
+
+  const handleSubmit = (e) => { 
+    e.preventDefault(); 
+    onSave({ 
+      domain, 
+      ips: ['8.8.8.8'], // Mock safe IP to pass initial validator
+      ttl: 300, 
+      mode: 'redirect', 
+      redirectTarget,
+      type: 'A' 
+    }); 
+    if (!editRecord) { 
+      setDomain(''); setRedirectTarget('');
+    } 
+  };
+  
+  const ic = "w-full px-3 py-2 bg-bg-primary border border-slate-700/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20";
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Domain</label>
+          <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil-redirect.com" className={ic} required disabled={!!editRecord} /></div>
+        <div>
+          <label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Target URL or CNAME</label>
+          <input value={redirectTarget} onChange={e => setRedirectTarget(e.target.value)} placeholder="http://169.254.169.254/ or internal.local" className={ic} required />
+        </div>
+      </div>
+      <div className="flex items-end gap-2 mt-2">
+        <motion.button type="submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-xs font-bold rounded-lg">
+          {editRecord ? '💾 Update Rule' : '+ Add Redirect Rule'}</motion.button>
+        {editRecord && <button type="button" onClick={onCancel} className="px-3 py-2 bg-slate-800 text-slate-400 text-xs rounded-lg hover:bg-slate-700">Cancel</button>}
+      </div>
+      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+        className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 text-xs text-blue-300 mt-2">
+        ℹ <strong>Note:</strong> Redirection occurs at Layer 8. The pipeline will initially resolve this domain via a safe mocked IP to bypass network firewall validations.
+      </motion.div>
+    </form>
+  );
+}
+
+function LiveResolution({ domain, ips, currentIP, ttl, ttlRemaining, mode, redirectTarget }) {
   const isPriv = privateRe.test(currentIP);
   const pct = mode === 'rebinding' && ttl > 0 ? Math.max(0, (ttlRemaining / (ttl * 1000)) * 100) : 100;
   return (
@@ -181,6 +303,14 @@ function LiveResolution({ domain, ips, currentIP, ttl, ttlRemaining, mode }) {
             {i < ips.length - 1 && <span className="text-slate-600 text-[10px]">→</span>}
           </div>
         ))}
+        {mode === 'redirect' && (
+          <div className="flex items-center gap-1.5 ml-2 mt-1">
+            <span className="text-blue-400 text-[10px] font-bold">302 🔀</span>
+            <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded text-[10px] font-mono">
+              {redirectTarget}
+            </span>
+          </div>
+        )}
       </div>
       {mode === 'rebinding' && (
         <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden">
@@ -314,6 +444,8 @@ export default function DnsResolver() {
   const [queryResult, setQueryResult] = useState(null);
   const [querying, setQuerying] = useState(false);
   const [lastDnsEvent, setLastDnsEvent] = useState(null);
+  const [activeFormTab, setActiveFormTab] = useState('standard');
+  const [activeTableTab, setActiveTableTab] = useState('standard');
   const timerRef = useRef(null);
 
   const fetchRecords = useCallback(async () => {
@@ -412,10 +544,27 @@ export default function DnsResolver() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
           <motion.div custom={0} initial="hidden" animate="visible" variants={sV}
             className="lg:col-span-3 bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-500" />{editRecord ? 'Edit Record' : 'Add DNS Record'}
-            </h2>
-            <RecordForm editRecord={editRecord} onSave={handleSave} onCancel={() => setEditRecord(null)} />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />{editRecord ? 'Edit Configuration' : 'Add Configuration'}
+              </h2>
+              <div className="flex items-center bg-slate-800/50 p-1 rounded-lg border border-slate-700/50">
+                <button type="button" onClick={() => { setActiveFormTab('standard'); if (editRecord && editRecord.mode === 'redirect') setEditRecord(null); }}
+                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeFormTab === 'standard' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                  🌐 IP Records
+                </button>
+                <button type="button" onClick={() => { setActiveFormTab('redirect'); if (editRecord && editRecord.mode !== 'redirect') setEditRecord(null); }}
+                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeFormTab === 'redirect' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                  🔀 Redirects
+                </button>
+              </div>
+            </div>
+            
+            {activeFormTab === 'standard' ? (
+              <RecordForm editRecord={editRecord && editRecord.mode !== 'redirect' ? editRecord : null} onSave={handleSave} onCancel={() => setEditRecord(null)} />
+            ) : (
+              <RedirectForm editRecord={editRecord && editRecord.mode === 'redirect' ? editRecord : null} onSave={handleSave} onCancel={() => setEditRecord(null)} />
+            )}
           </motion.div>
           <motion.div custom={1} initial="hidden" animate="visible" variants={sV}
             className="lg:col-span-2 bg-bg-card border border-slate-700/30 rounded-2xl p-5">
@@ -436,11 +585,28 @@ export default function DnsResolver() {
         {/* Row 2: Records Table with inline editing */}
         <motion.div custom={2} initial="hidden" animate="visible" variants={sV}
           className="bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />Domain Records
-            <span className="text-[10px] font-normal text-slate-600 ml-1">— Edit IP inline or use quick attack buttons</span>
-          </h2>
-          <RecordsTable records={records} onDelete={handleDelete} onEdit={setEditRecord} onInstantUpdate={handleInstantUpdate} />
+          <div className="flex items-center justify-between mb-4 border-b border-slate-700/30 pb-3">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />Domain Configurations
+              <span className="text-[10px] font-normal text-slate-600 ml-1 hidden sm:inline">— Edit IP inline or use quick attack buttons</span>
+            </h2>
+            <div className="flex items-center bg-slate-800/50 p-1 rounded-lg border border-slate-700/50">
+              <button onClick={() => setActiveTableTab('standard')}
+                className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeTableTab === 'standard' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                A Records
+              </button>
+              <button onClick={() => setActiveTableTab('redirect')}
+                className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeTableTab === 'redirect' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                Redirect Rules
+              </button>
+            </div>
+          </div>
+          
+          {activeTableTab === 'standard' ? (
+            <RecordsTable records={records.filter(r => r.mode !== 'redirect')} onDelete={handleDelete} onEdit={(r) => { setEditRecord(r); setActiveFormTab('standard'); }} onInstantUpdate={handleInstantUpdate} />
+          ) : (
+            <RedirectsTable records={records.filter(r => r.mode === 'redirect')} onDelete={handleDelete} onEdit={(r) => { setEditRecord(r); setActiveFormTab('redirect'); }} />
+          )}
         </motion.div>
 
         {/* Row 3: Live Resolution + Logs */}
@@ -457,6 +623,14 @@ export default function DnsResolver() {
                   <LiveResolution key={r.domain} {...r} />
                 ))
               ) : <div className="text-xs text-slate-600 py-4 text-center">No rebinding records</div>}
+
+              {records.filter(r => r.mode === 'redirect').length > 0 && (
+                <>
+                  <div className="text-[10px] text-slate-600 uppercase font-semibold mt-3 mb-1">Redirect Records</div>
+                  {records.filter(r => r.mode === 'redirect').map(r => <LiveResolution key={r.domain} {...r} />)}
+                </>
+              )}
+
               {records.filter(r => r.mode === 'static').length > 0 && (
                 <>
                   <div className="text-[10px] text-slate-600 uppercase font-semibold mt-3 mb-1">Static Records</div>
