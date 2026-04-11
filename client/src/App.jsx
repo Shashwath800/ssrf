@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
-import DnsControl from './pages/DnsControl';
+import DnsResolver from './pages/DnsResolver';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/dns" element={<DnsControl />} />
+        <Route path="/dns-resolver" element={<DnsResolver />} />
       </Routes>
     </BrowserRouter>
   );

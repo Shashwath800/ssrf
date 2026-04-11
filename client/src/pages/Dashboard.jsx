@@ -84,9 +84,10 @@ export default function Dashboard() {
             <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700/50">
               {scanHistory.length} scans
             </span>
-            <Link to="/dns" className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-indigo-600/20 to-purple-600/20 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/50 hover:text-white transition-all">
-              🌐 DNS Control
+            <Link to="/dns-resolver" className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-cyan-600/20 to-blue-600/20 text-cyan-300 border border-cyan-500/30 hover:border-cyan-400/50 hover:text-white transition-all">
+              🌐 DNS Resolver
             </Link>
+
           </div>
         </div>
       </motion.header>
