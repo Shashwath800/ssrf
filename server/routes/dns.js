@@ -15,11 +15,11 @@ router.get("/dns-records", (req, res) => {
 
 // POST /api/dns-record — Add or update a record
 router.post("/dns-record", (req, res) => {
-  const { domain, type, mode, ips, ttl } = req.body;
+  const { domain, type, mode, ips, ttl, redirectTarget } = req.body;
   if (!domain || !ips || !Array.isArray(ips) || ips.length === 0) {
     return res.status(400).json({ error: "domain and ips[] are required" });
   }
-  const record = dnsStore.addOrUpdateRecord(domain, { type, mode, ips, ttl });
+  const record = dnsStore.addOrUpdateRecord(domain, { type, mode, ips, ttl, redirectTarget });
   res.json({ domain, record, message: `Record ${domain} saved` });
 });
 

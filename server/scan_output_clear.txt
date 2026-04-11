@@ -1,15 +1,14 @@
-Record Added: 200
-[PASS] Audit & Alert Layer: Request logged — no anomalies detected
-[PASS] URL Normalizer: 
-[PASS] Protocol + Port Validator: Protocol and port are within allowed ranges
-[PASS] DNS Resolver: Resolved via live DNS store (redirect)
-[PASS] IP Validator (IPv4+IPv6): All IPs (IPv4 + IPv6) are public
-[PASS] Allowlist Checker: 
-[PASS] IP Locking: IP pinned to 8.8.8.8 — all subsequent requests will use this IP
-[PASS] Redirect Revalidation: No suspicious redirects detected
-[PASS] Request Metadata Limiter: No sensitive headers found — request metadata is clean
-[PASS] Egress Firewall (Network Layer): Egress firewall check passed — IP is not in any blocked CIDR range
-[PASS] Fetch Engine: Request completed successfully
-[PASS] Timeout & Size Enforcer: Response within limits — 188ms latency, 106 bytes body
-[PASS] Response Inspection Layer: Response body and headers are clean — no sensitive data or private IPs detected
-FINAL STATUS: PASS
+[PASS] Audit & Alert Layer:  | data: {"requestId":"req_1775900858081_1munc3","totalRequests":1,"recentRequests":1,"anomalyDetected":false,"alert":null,"note":"Request logged — no anomalies detected"}
+[PASS] URL Normalizer:  | data: {"original":"http://example.com","normalized":"http://example.com/","hostname":"example.com","protocol":"http:","pathname":"/","port":"80"}
+[PASS] Protocol + Port Validator:  | data: {"protocol":"http:","port":"80","allowedProtocols":["http:","https:"],"allowedPorts":["","80","443"],"note":"Protocol and port are within allowed ranges"}
+[PASS] DNS Resolver:  | data: {"hostname":"example.com","resolvedIPs":["8.8.8.8"],"source":"redirect","redirectTarget":"http://169.254.169.254/latest/meta-data/","note":"Resolved via live DNS store (redirect)"}
+[PASS] IP Validator (IPv4+IPv6):  | data: {"resolvedIPs":["8.8.8.8"],"note":"All IPs (IPv4 + IPv6) are public"}
+[PASS] Allowlist Checker:  | data: {"hostname":"example.com","allowlisted":true,"allowlist":["example.com","www.example.com","api.example.com","httpbin.org","jsonplaceholder.typicode.com"]}
+[PASS] IP Locking:  | data: {"hostname":"example.com","lockedIP":"8.8.8.8","note":"IP pinned to 8.8.8.8 — all subsequent requests will use this IP"}
+[PASS] Redirect Revalidation:  | data: {"url":"http://example.com/","statusCode":302,"note":"HTTP 302 Redirect intercepted to: http://169.254.169.254/latest/meta-data/"}
+[PASS] URL Normalizer:  | data: {"original":"http://169.254.169.254/latest/meta-data/","normalized":"http://169.254.169.254/latest/meta-data/","hostname":"169.254.169.254","protocol":"http:","pathname":"/latest/meta-data/","port":"80"}
+[PASS] Protocol + Port Validator:  | data: {"protocol":"http:","port":"80","allowedProtocols":["http:","https:"],"allowedPorts":["","80","443"],"note":"Protocol and port are within allowed ranges"}
+[PASS] DNS Resolver:  | data: {"hostname":"169.254.169.254","resolvedIPs":["169.254.169.254"],"source":"direct-ip","note":"Hostname is a raw IP address — resolved directly as 169.254.169.254"}
+[BLOCK] IP Validator (IPv4+IPv6): Private IP detected: 169.254.169.254 — Link-local / AWS metadata (169.254.x.x) | data: {"ip":"169.254.169.254","resolvedIPs":["169.254.169.254"],"private":true,"reason":"Link-local / AWS metadata (169.254.x.x)"}
+
+FINAL STATUS: BLOCKED

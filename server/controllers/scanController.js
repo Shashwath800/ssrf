@@ -7,10 +7,28 @@
 const SSRFShield = require('ssrf-shield');
 const dnsStore = require('../engine/dnsStore');
 
+// Regex to detect if a hostname is already a raw IP address
+const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+
 // Create a shared shield instance
 const shield = new SSRFShield({
   // Integrate the real live DNS store from the DNS Resolver page!
   customDnsResolver: (domain) => {
+    // If the domain IS already a raw IP (e.g. from a redirect target like http://169.254.169.254/),
+    // return that IP directly — do NOT look it up in the DNS store (it won't exist there).
+    if (IP_RE.test(domain)) {
+      return {
+        step: "DNS Resolver",
+        status: "PASS",
+        data: {
+          hostname: domain,
+          resolvedIPs: [domain],  // The "domain" IS the IP
+          source: "direct-ip",
+          note: `Hostname is a raw IP address — resolved directly as ${domain}`
+        }
+      };
+    }
+
     const res = dnsStore.resolveDomain(domain);
     return {
       step: "DNS Resolver",
