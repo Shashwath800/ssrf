@@ -13,6 +13,7 @@ const groqRoutes = require("./routes/groq");
 const fakeAwsMetadata = require("./routes/fakeAwsMetadata");
 const attackDemo = require("./routes/attackDemo");
 const riskAnalyzer = require("./routes/riskAnalyzer");
+const mlAnalyzer = require("./routes/mlAnalyzer");
 const webhookRoutes = require("./routes/webhook");
 const eventsRoutes = require("./routes/events");
 
@@ -29,6 +30,7 @@ app.use("/api", dnsRoutes);
 app.use("/api", groqRoutes);
 app.use("/api", attackDemo);
 app.use("/api", riskAnalyzer);
+app.use("/api", mlAnalyzer);
 app.use("/api", webhookRoutes);
 app.use("/api", eventsRoutes);
 

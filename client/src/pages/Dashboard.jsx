@@ -154,6 +154,9 @@ export default function Dashboard() {
                     <Link to="/risk-analyzer" className="hover:text-amber-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
                         <i className="fas fa-radar"></i> RISK_ANALYZER
                     </Link>
+                    <Link to="/ml-analyzer" className="hover:text-indigo-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
+                        <i className="fas fa-microchip"></i> ML_ANALYZER
+                    </Link>
                     <Link to="/webhook-settings" className="hover:text-orange-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
                         <i className="fas fa-bell"></i> WEBHOOKS
                     </Link>
