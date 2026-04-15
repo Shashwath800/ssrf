@@ -7,6 +7,7 @@
 
 const express = require("express");
 const router = express.Router();
+const { emitEvent } = require("../engine/eventStore");
 
 // ── In-memory stores ──
 let webhookConfig = {
@@ -41,6 +42,15 @@ async function dispatchAlert(alert) {
     });
 
     console.log(`🔔 Webhook dispatched: ${alert.event} → ${webhookConfig.url}`);
+
+    emitEvent({
+      type: "WEBHOOK_FIRED",
+      ip: alert.attackerIP || "system",
+      url: alert.targetUrl || "",
+      severity: "info",
+      reason: `Webhook dispatched: ${alert.event}`,
+      source: "webhook",
+    });
   } catch (err) {
     console.error(`⚠️  Webhook delivery failed: ${err.message}`);
   }

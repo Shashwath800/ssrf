@@ -7,6 +7,7 @@
 const SSRFShield = require('ssrf-shield');
 const dnsStore = require('../engine/dnsStore');
 const { dispatchAlert } = require('../routes/webhook');
+const { emitEvent } = require('../engine/eventStore');
 
 // Regex to detect if a hostname is already a raw IP address
 const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
@@ -61,6 +62,18 @@ async function scanUrl(req, res) {
   // Send an initial event
   res.write(`data: ${JSON.stringify({ type: 'start', url })}\n\n`);
 
+  const clientIP = req.ip || req.connection?.remoteAddress || "unknown";
+
+  // Emit scan start event
+  emitEvent({
+    type: "SCAN_STARTED",
+    ip: clientIP,
+    url,
+    severity: "info",
+    reason: `Pipeline scan initiated for ${url}`,
+    source: "scanner",
+  });
+
   // Run the async scan with high delay to simulate slow pipeline (~20-30s total)
   // Each step takes 1.8s
   const result = await shield.scan(url, {}, {
@@ -69,12 +82,26 @@ async function scanUrl(req, res) {
       // Stream each step exactly as it happens
       res.write(`data: ${JSON.stringify({ type: 'step', stepResult })}\n\n`);
 
+      // Emit event for every step
+      const isBlock = stepResult.status === 'BLOCK';
+      emitEvent({
+        type: isBlock ? "STEP_BLOCK" : "STEP_PASS",
+        ip: clientIP,
+        url,
+        severity: isBlock ? "high" : "low",
+        reason: isBlock
+          ? `Blocked at "${stepResult.step}": ${stepResult.data?.reason || stepResult.data?.note || "Policy violation"}`
+          : `Passed: ${stepResult.step}`,
+        source: "scanner",
+        data: { step: stepResult.step, status: stepResult.status },
+      });
+
       // 🔔 If a step blocks, fire a webhook alert
-      if (stepResult.status === 'BLOCK') {
+      if (isBlock) {
         dispatchAlert({
           event: "SSRF_BLOCKED",
           timestamp: new Date().toISOString(),
-          attackerIP: req.ip || req.connection?.remoteAddress || "unknown",
+          attackerIP: clientIP,
           targetUrl: url,
           reason: `Blocked at "${stepResult.step}": ${stepResult.data?.reason || stepResult.data?.note || "Policy violation"}`,
           severity: "high",
@@ -83,6 +110,17 @@ async function scanUrl(req, res) {
         });
       }
     }
+  });
+
+  // Emit scan complete event
+  emitEvent({
+    type: result.status === "BLOCK" ? "SSRF_BLOCKED" : "SCAN_COMPLETED",
+    ip: clientIP,
+    url,
+    severity: result.status === "BLOCK" ? "high" : "info",
+    reason: `Scan finished: ${result.status}`,
+    source: "scanner",
+    data: { finalStatus: result.status },
   });
 
   // Finish

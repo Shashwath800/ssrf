@@ -14,6 +14,7 @@ const express = require("express");
 const router = express.Router();
 const SSRFShield = require("ssrf-shield");
 const dnsStore = require("../engine/dnsStore");
+const { emitEvent } = require("../engine/eventStore");
 
 const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
 const PORT = process.env.PORT || 4000;
@@ -293,6 +294,30 @@ router.post("/attack-demo", async (req, res) => {
       result = await protectedFetch(targetUrl);
     }
     result.mode = mode;
+
+    // Emit structured event
+    if (result.leaked) {
+      emitEvent({
+        type: "EXPLOIT_SUCCESS",
+        ip: req.ip || "unknown",
+        url: targetUrl,
+        severity: "critical",
+        reason: `SSRF exploit succeeded in ${mode} mode — sensitive data exposed`,
+        source: "simulator",
+        data: { mode },
+      });
+    } else if (result.blocked) {
+      emitEvent({
+        type: "SSRF_BLOCKED",
+        ip: req.ip || "unknown",
+        url: targetUrl,
+        severity: "high",
+        reason: `Attack blocked at ${result.blockStep} in ${mode} mode`,
+        source: "simulator",
+        data: { mode, step: result.blockStep },
+      });
+    }
+
     res.json(result);
   } catch (err) {
     console.error("Attack demo error:", err);

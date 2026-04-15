@@ -10,6 +10,7 @@ const router = express.Router();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+const { emitEvent } = require("../engine/eventStore");
 
 // ── SSRF-prone parameter patterns ──
 const SSRF_PARAMS = [
@@ -373,6 +374,17 @@ router.post("/analyze-risk", async (req, res) => {
       [inputResults, networkResults, securityResults, attackResults],
       GROQ_API_KEY
     );
+
+    // Emit analysis event
+    emitEvent({
+      type: "ANALYSIS_COMPLETED",
+      ip: req.ip || "unknown",
+      url,
+      severity: strategist.attackability === "High" ? "high" : strategist.attackability === "Medium" ? "medium" : "low",
+      reason: `Risk analysis: ${strategist.riskScore}/100 (${strategist.attackability})`,
+      source: "analyzer",
+      data: { riskScore: strategist.riskScore, attackability: strategist.attackability },
+    });
 
     res.json({
       url,

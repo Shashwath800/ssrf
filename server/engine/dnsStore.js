@@ -9,6 +9,7 @@
  */
 
 const { dispatchAlert } = require('../routes/webhook');
+const { emitEvent } = require('./eventStore');
 
 // Helper to check if an IP is private/internal
 const isPrivateIP = (ip) => /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|169\.254\.|0\.0\.0\.|localhost|::1)/.test(ip);
@@ -124,6 +125,14 @@ function resolveDomain(domain) {
           severity: "critical",
           blocked: false,
         });
+        emitEvent({
+          type: "DNS_REBINDING",
+          ip: "dns-resolver",
+          url: domain,
+          severity: "critical",
+          reason: `DNS rebinding: ${domain} rotated from ${record.ips[oldIndex]} → ${record.ips[record.currentIndex]}`,
+          source: "dns",
+        });
       }
     }
 
@@ -156,6 +165,14 @@ function resolveDomain(domain) {
         reason: `DNS redirect: ${domain} redirects to internal target ${redirectUrl}`,
         severity: "critical",
         blocked: false,
+      });
+      emitEvent({
+        type: "DNS_REDIRECT",
+        ip: "dns-resolver",
+        url: domain,
+        severity: "critical",
+        reason: `DNS redirect to internal: ${redirectUrl}`,
+        source: "dns",
       });
     }
 
@@ -238,6 +255,14 @@ function instantUpdate(domain, newIP) {
       reason: `DNS instantly changed: ${domain} from ${oldIP} → ${newIP} (private IP — potential attack)`,
       severity: "high",
       blocked: false,
+    });
+    emitEvent({
+      type: "DNS_ATTACK",
+      ip: "dns-resolver",
+      url: domain,
+      severity: "high",
+      reason: `DNS instant update: ${oldIP} → ${newIP} (private)`,
+      source: "dns",
     });
   }
 
