@@ -12,6 +12,8 @@ const dnsRoutes = require("./routes/dns");
 const groqRoutes = require("./routes/groq");
 const fakeAwsMetadata = require("./routes/fakeAwsMetadata");
 const attackDemo = require("./routes/attackDemo");
+const riskAnalyzer = require("./routes/riskAnalyzer");
+const webhookRoutes = require("./routes/webhook");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,6 +27,8 @@ app.use("/api", scanRoutes);
 app.use("/api", dnsRoutes);
 app.use("/api", groqRoutes);
 app.use("/api", attackDemo);
+app.use("/api", riskAnalyzer);
+app.use("/api", webhookRoutes);
 
 // Fake internal services (mounted at root — simulates 169.254.169.254)
 app.use("/", fakeAwsMetadata);
@@ -46,6 +50,10 @@ app.get("/", (req, res) => {
       "GET  /api/dns-logs",
       "GET  /latest/meta-data/ (fake AWS)",
       "GET  /internal/db (fake DB)",
+      "GET  /api/webhook-config",
+      "POST /api/webhook-config",
+      "GET  /api/alerts",
+      "POST /api/webhook-test",
     ],
   });
 });

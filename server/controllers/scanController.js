@@ -6,6 +6,7 @@
 
 const SSRFShield = require('ssrf-shield');
 const dnsStore = require('../engine/dnsStore');
+const { dispatchAlert } = require('../routes/webhook');
 
 // Regex to detect if a hostname is already a raw IP address
 const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
@@ -67,6 +68,20 @@ async function scanUrl(req, res) {
     onStep: async (stepResult) => {
       // Stream each step exactly as it happens
       res.write(`data: ${JSON.stringify({ type: 'step', stepResult })}\n\n`);
+
+      // 🔔 If a step blocks, fire a webhook alert
+      if (stepResult.status === 'BLOCK') {
+        dispatchAlert({
+          event: "SSRF_BLOCKED",
+          timestamp: new Date().toISOString(),
+          attackerIP: req.ip || req.connection?.remoteAddress || "unknown",
+          targetUrl: url,
+          reason: `Blocked at "${stepResult.step}": ${stepResult.data?.reason || stepResult.data?.note || "Policy violation"}`,
+          severity: "high",
+          blocked: true,
+          step: stepResult.step,
+        });
+      }
     }
   });
 

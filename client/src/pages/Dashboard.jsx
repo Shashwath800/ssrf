@@ -151,6 +151,12 @@ export default function Dashboard() {
                     <Link to="/attack-demo" className="hover:text-red-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
                         <i className="fas fa-crosshairs"></i> ATTACK_DEMO
                     </Link>
+                    <Link to="/risk-analyzer" className="hover:text-amber-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
+                        <i className="fas fa-radar"></i> RISK_ANALYZER
+                    </Link>
+                    <Link to="/webhook-settings" className="hover:text-orange-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
+                        <i className="fas fa-bell"></i> WEBHOOKS
+                    </Link>
                     <div className="text-[10px] text-slate-600 uppercase tracking-widest mt-6 mb-2">Modules</div>
                     <div id="sidebar-links" className="space-y-2">
                         {stages.map((s, i) => (

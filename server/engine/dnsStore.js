@@ -8,6 +8,11 @@
  * - Query logging with event classification
  */
 
+const { dispatchAlert } = require('../routes/webhook');
+
+// Helper to check if an IP is private/internal
+const isPrivateIP = (ip) => /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|169\.254\.|0\.0\.0\.|localhost|::1)/.test(ip);
+
 // ── DNS Record Store ──
 const dnsRecords = {
   "example.com": {
@@ -107,6 +112,19 @@ function resolveDomain(domain) {
         fromIP: record.ips[oldIndex],
         toIP: record.ips[record.currentIndex],
       });
+
+      // 🔔 Alert if rebinding landed on a private IP
+      if (isPrivateIP(record.ips[record.currentIndex])) {
+        dispatchAlert({
+          event: "DNS_REBINDING_DETECTED",
+          timestamp: new Date().toISOString(),
+          attackerIP: "dns-resolver",
+          targetUrl: domain,
+          reason: `DNS rebinding: ${domain} rotated from ${record.ips[oldIndex]} → ${record.ips[record.currentIndex]} (private IP)`,
+          severity: "critical",
+          blocked: false,
+        });
+      }
     }
 
     const ip = record.ips[record.currentIndex];
@@ -125,6 +143,22 @@ function resolveDomain(domain) {
     addLog(domain, ip, "RESOLVE", {
       note: `Resolved for Redirect -> ${record.redirectTarget}`
     });
+
+    // 🔔 Alert on redirect to internal targets
+    const redirectUrl = record.redirectTarget || "";
+    if (redirectUrl.includes("169.254.") || redirectUrl.includes("127.0.0.1") || 
+        redirectUrl.includes("localhost") || redirectUrl.includes("10.0.") || redirectUrl.includes("192.168.")) {
+      dispatchAlert({
+        event: "DNS_REDIRECT_TO_INTERNAL",
+        timestamp: new Date().toISOString(),
+        attackerIP: "dns-resolver",
+        targetUrl: domain,
+        reason: `DNS redirect: ${domain} redirects to internal target ${redirectUrl}`,
+        severity: "critical",
+        blocked: false,
+      });
+    }
+
     return { ips: [ip], source: "redirect", record };
   }
 
@@ -193,6 +227,19 @@ function instantUpdate(domain, newIP) {
       ? `⚡ ATTACK: DNS changed to private IP ${newIP} — potential rebinding!`
       : `DNS updated: ${oldIP} → ${newIP}`,
   });
+
+  // 🔔 Alert on instant update to a private IP
+  if (isPrivate) {
+    dispatchAlert({
+      event: "DNS_INSTANT_ATTACK",
+      timestamp: new Date().toISOString(),
+      attackerIP: "dns-resolver",
+      targetUrl: domain,
+      reason: `DNS instantly changed: ${domain} from ${oldIP} → ${newIP} (private IP — potential attack)`,
+      severity: "high",
+      blocked: false,
+    });
+  }
 
   return record;
 }
