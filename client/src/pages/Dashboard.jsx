@@ -267,14 +267,38 @@ export default function Dashboard() {
                 </main>
             )}
 
-            {view === 'module' && (
+            {view === 'module' && (() => {
+                const stage = stages[activeModule];
+                const hasStepData = scanResult?.steps?.some(s => s.step === stage.name);
+                const blockStep = scanResult?.steps?.find(s => s.status === 'BLOCK');
+                const blockIndex = blockStep ? stages.findIndex(st => st.name === blockStep.step) : -1;
+                const wasBlockedBefore = blockStep && blockIndex >= 0 && blockIndex < activeModule;
+
+                return (
                 <section id="demo-view" className="relative z-10 w-full max-w-4xl mx-auto pt-20">
                     <button onClick={() => setView('pipeline')} className="text-cyan-400 mb-10 hover:underline flex items-center gap-2">
                         <i className="fas fa-arrow-left"></i> BACK_TO_PIPELINE
                     </button>
                     <div id="demo-content">
                         <div className="demo-card">
-                            <h2 className="text-5xl font-bold text-white mb-6 tracking-tighter">{stages[activeModule].label}</h2>
+                            <h2 className="text-5xl font-bold text-white mb-6 tracking-tighter">{stage.label}</h2>
+
+                            {/* Stage not reached banner */}
+                            {!hasStepData && scanResult?.isDone && wasBlockedBefore && (
+                                <div className="mb-6 p-4 rounded-lg border-2 border-amber-500/40 bg-amber-500/5">
+                                    <div className="flex items-center gap-3 text-amber-400 font-bold">
+                                        <i className="fas fa-forward"></i>
+                                        STAGE NOT REACHED
+                                    </div>
+                                    <p className="text-slate-400 text-sm mt-2">
+                                        The pipeline was blocked at <span className="text-red-400 font-bold">Stage {String(blockIndex + 1).padStart(2, '0')} — {stages[blockIndex].label}</span> before reaching this layer.
+                                        This stage never executed because the request was already denied upstream.
+                                    </p>
+                                    <p className="text-slate-500 text-xs mt-2 italic">
+                                        Reason: {blockStep.reason || 'Blocked by defense pipeline'}
+                                    </p>
+                                </div>
+                            )}
 
                             {/* AI Explanation Section */}
                             <div className="mb-8 p-5 rounded-lg border border-cyan-500/30 bg-cyan-900/10 relative min-h-[80px]">
@@ -288,6 +312,8 @@ export default function Dashboard() {
                                     </div>
                                 ) : aiExplanation ? (
                                     <p className="text-lg text-slate-200 leading-relaxed font-light">{aiExplanation}</p>
+                                ) : wasBlockedBefore ? (
+                                    <p className="text-sm text-amber-500/80 italic">This stage was never reached — the pipeline blocked the request at an earlier layer.</p>
                                 ) : (
                                     <p className="text-sm text-slate-500 italic">Run a scan first, then click a stage to get a live AI explanation of what happened.</p>
                                 )}
@@ -296,14 +322,16 @@ export default function Dashboard() {
                             {/* Live Logs from scan */}
                             <div className="p-6 bg-black/50 border-l-4 border-cyan-500 font-mono text-green-500 overflow-x-auto">
                                 &gt; MODULE_ID: {activeModule < 9 ? '0'+(activeModule+1) : (activeModule+1)}<br/>
-                                &gt; STATUS: OPERATIONAL<br/>
-                                &gt; LOGGING: ACTIVE<br/><br/>
-                                {scanResult?.logs.filter(l => l.step === stages[activeModule].name).length > 0 ? (
-                                    scanResult.logs.filter(l => l.step === stages[activeModule].name).map((log, idx) => (
+                                &gt; STATUS: {hasStepData ? 'EXECUTED' : wasBlockedBefore ? 'SKIPPED' : 'AWAITING'}<br/>
+                                &gt; LOGGING: {hasStepData ? 'ACTIVE' : 'INACTIVE'}<br/><br/>
+                                {scanResult?.logs.filter(l => l.step === stage.name).length > 0 ? (
+                                    scanResult.logs.filter(l => l.step === stage.name).map((log, idx) => (
                                         <div key={idx} className={`mt-2 ${log.status === 'BLOCK' || log.status === 'ERROR' ? 'text-red-500' : 'text-green-400'}`}>
                                             [{new Date(log.timestamp).toLocaleTimeString()}] {log.status}: {log.message}
                                         </div>
                                     ))
+                                ) : wasBlockedBefore ? (
+                                    <span className="text-amber-500/60">$ Stage skipped — pipeline terminated at Stage {String(blockIndex + 1).padStart(2, '0')}</span>
                                 ) : (
                                     <span className="text-slate-600">$ No logs for this stage yet. Run a scan to see live results.</span>
                                 )}
@@ -311,7 +339,8 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </section>
-            )}
+                );
+            })()}
         </>
     );
 }

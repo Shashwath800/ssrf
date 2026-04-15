@@ -43,6 +43,8 @@ export default function AttackDemo() {
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [activeFlowStep, setActiveFlowStep] = useState(-1);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const logsEndRef = useRef(null);
 
   // Matrix rain
@@ -86,6 +88,8 @@ export default function AttackDemo() {
   const launchAttack = async () => {
     setIsRunning(true);
     setResult(null);
+    setAiAnalysis(null);
+    setAiLoading(false);
     setActiveFlowStep(0);
 
     // Animate the flow steps
@@ -104,6 +108,38 @@ export default function AttackDemo() {
       const data = await res.json();
       setResult(data);
       setActiveFlowStep(FLOW_STEPS.length);
+
+      // Fire off AI analysis via Groq
+      if (data.logs && !data.error) {
+        setAiLoading(true);
+        try {
+          const aiRes = await fetch('/api/analyze-attack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              logs: data.logs,
+              targetUrl,
+              mode,
+              blocked: data.blocked || false,
+              leaked: data.leaked || false,
+              resolvedIP: data.resolvedIP || '',
+              reason: data.reason || '',
+              responseBody: data.response?.body || null,
+            }),
+          });
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            setAiAnalysis(aiData.analysis || 'No analysis returned.');
+          } else {
+            const errData = await aiRes.json().catch(() => ({}));
+            setAiAnalysis(`AI Error: ${errData.error || aiRes.statusText}`);
+          }
+        } catch (aiErr) {
+          setAiAnalysis(`AI unavailable: ${aiErr.message}`);
+        } finally {
+          setAiLoading(false);
+        }
+      }
     } catch (err) {
       setResult({ error: err.message, logs: [{ time: 0, event: 'NETWORK_ERROR', detail: err.message }] });
       setActiveFlowStep(FLOW_STEPS.length);
@@ -116,6 +152,7 @@ export default function AttackDemo() {
     setTargetUrl(preset.url);
     setResult(null);
     setActiveFlowStep(-1);
+    setAiAnalysis(null);
   };
 
   const handleSubPath = async (path) => {
@@ -256,7 +293,7 @@ export default function AttackDemo() {
               </div>
               <div className="flex items-center gap-4">
                 <button
-                  onClick={() => { setMode('vulnerable'); setResult(null); setActiveFlowStep(-1); }}
+                  onClick={() => { setMode('vulnerable'); setResult(null); setActiveFlowStep(-1); setAiAnalysis(null); }}
                   className={`flex-1 py-3 rounded-lg font-bold text-sm uppercase tracking-wider transition-all ${
                     mode === 'vulnerable'
                       ? 'bg-red-500/20 border-2 border-red-500 text-red-400 shadow-[0_0_20px_rgba(255,0,85,0.3)]'
@@ -266,7 +303,7 @@ export default function AttackDemo() {
                   <i className="fas fa-unlock mr-2"></i>Vulnerable
                 </button>
                 <button
-                  onClick={() => { setMode('protected'); setResult(null); setActiveFlowStep(-1); }}
+                  onClick={() => { setMode('protected'); setResult(null); setActiveFlowStep(-1); setAiAnalysis(null); }}
                   className={`flex-1 py-3 rounded-lg font-bold text-sm uppercase tracking-wider transition-all ${
                     mode === 'protected'
                       ? 'bg-green-500/20 border-2 border-green-500 text-green-400 shadow-[0_0_20px_rgba(0,255,0,0.3)]'
@@ -519,6 +556,55 @@ export default function AttackDemo() {
                 </div>
               )}
             </div>
+
+            {/* ═══ AI Security Analysis Panel (Groq-powered) ═══ */}
+            {(aiLoading || aiAnalysis) && (
+              <div className="bg-black/60 border border-slate-800 rounded-xl p-5 backdrop-blur-sm">
+                <div className="text-[10px] text-cyan-600 font-bold tracking-widest uppercase mb-4 flex items-center gap-2">
+                  <i className="fas fa-brain"></i> 🧠 AI SECURITY ANALYSIS // GROQ
+                </div>
+
+                {aiLoading ? (
+                  <div className="flex items-center gap-3 text-cyan-400 text-sm py-4">
+                    <i className="fas fa-spinner fa-spin"></i>
+                    <span className="font-mono tracking-wider">Analyzing attack via Groq LLM...</span>
+                  </div>
+                ) : aiAnalysis ? (
+                  <div className="space-y-3">
+                    {aiAnalysis.split('\n').filter(line => line.trim()).map((line, i) => {
+                      const trimmed = line.trim();
+                      const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
+                      const isVerdict = trimmed.includes('VERDICT:');
+                      const isExploit = trimmed.includes('🚨') || trimmed.toLowerCase().includes('exploit successful');
+                      const isBlocked = trimmed.includes('✅') || trimmed.toLowerCase().includes('attack blocked');
+
+                      if (isVerdict) {
+                        return (
+                          <div key={i} className={`mt-4 p-4 rounded-lg border-2 font-bold text-sm ${
+                            isExploit
+                              ? 'text-red-400 border-red-500/40 bg-red-500/5'
+                              : 'text-green-400 border-green-500/40 bg-green-500/5'
+                          }`}>
+                            {trimmed}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={i} className="flex gap-3 items-start">
+                          {isBullet && <span className="text-cyan-500 mt-1 text-xs">●</span>}
+                          <p className={`text-sm leading-relaxed ${
+                            isBullet ? 'text-slate-300' : 'text-slate-400'
+                          }`}>
+                            {isBullet ? trimmed.replace(/^[•\-]\s*/, '') : trimmed}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            )}
 
           </div>
         </div>
