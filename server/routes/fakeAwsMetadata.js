@@ -67,21 +67,24 @@ router.get("/latest/meta-data/placement/availability-zone", (req, res) => {
   res.type("text/plain").send("us-east-1a");
 });
 
-// ── Internal Fake Database Endpoint ──
+// ── Internal Config Endpoint (simulates exposed env/config) ──
+// In real attacks, SSRF leaks config files, env vars, or cloud metadata — not databases.
 
 router.get("/internal/db", (req, res) => {
   res.json({
+    env: {
+      NODE_ENV: "production",
+      DB_HOST: "10.0.1.50",
+      DB_USER: "admin",
+      DB_PASS: "DEMO_dbpass_not_real",
+      JWT_SECRET: "DEMO_jwt_secret_not_real",
+      INTERNAL_API: "http://10.0.1.100:8080/v2",
+    },
     users: [
-      { id: 1, name: "admin", email: "admin@corp.internal", password: "supersecret123!" },
-      { id: 2, name: "doctor", email: "doc@corp.internal", password: "med@Pass456" },
-      { id: 3, name: "devops", email: "devops@corp.internal", password: "k8s_cl0ud$ecret" },
+      { id: 1, role: "admin", email: "admin@corp.internal" },
+      { id: 2, role: "doctor", email: "doc@corp.internal" },
     ],
-    apiKeys: [
-      { service: "stripe", key: "REMOVEDtest_4eC39HqLyjWDarjtT1zdp7dc" },
-      { service: "firebase", key: "AIzaSyDFake-FirebaseKey123456" },
-      { service: "aws-s3", key: "AKIA5FAKEKEYS3BUCKET99" },
-    ],
-    dbConnection: "postgresql://admin:supersecret123!@10.0.1.50:5432/production",
+    note: "⚠️ This is simulated internal config data — exposed via SSRF"
   });
 });
 
