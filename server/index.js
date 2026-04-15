@@ -3,11 +3,13 @@
  * Express server entry point.
  */
 
+require('dotenv').config();
+
 const express = require("express");
 const cors = require("cors");
 const scanRoutes = require("./routes/scan");
 const dnsRoutes = require("./routes/dns");
-const ollamaRoutes = require("./routes/ollama");
+const groqRoutes = require("./routes/groq");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -19,7 +21,7 @@ app.use(express.json());
 // Routes
 app.use("/api", scanRoutes);
 app.use("/api", dnsRoutes);
-app.use("/api", ollamaRoutes);
+app.use("/api", groqRoutes);
 
 // Health check
 app.get("/", (req, res) => {

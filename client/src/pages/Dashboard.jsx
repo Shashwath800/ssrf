@@ -23,6 +23,8 @@ export default function Dashboard() {
     const [urlInput, setUrlInput] = useState('');
     const [view, setView] = useState('pipeline'); // 'pipeline' | 'module'
     const [activeModule, setActiveModule] = useState(0);
+    const [aiExplanation, setAiExplanation] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
 
     // Dynamic auto-scrolling
     const processingNodeRef = useRef(null);
@@ -72,9 +74,58 @@ export default function Dashboard() {
         runScan(urlInput);
     };
 
+    const fetchGroqExplanation = async (idx, currentScanResult) => {
+        const stage = stages[idx];
+        const steps = currentScanResult?.steps || [];
+
+        // Exact match first, then partial/case-insensitive fallback
+        let stepResult = steps.find(s => s.step === stage.name);
+        if (!stepResult) {
+            stepResult = steps.find(s =>
+                s.step?.toLowerCase().includes(stage.name.split(' ')[0].toLowerCase()) ||
+                stage.name.toLowerCase().includes((s.step || '').split(' ')[0].toLowerCase())
+            );
+        }
+
+        if (!stepResult) {
+            // No scan data for this step yet — show a helpful message but don't crash
+            setAiExplanation(null);
+            setAiLoading(false);
+            return;
+        }
+
+        setAiLoading(true);
+        setAiExplanation(null);
+        try {
+            const res = await fetch('/api/explain-step', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    step: stepResult.step,
+                    status: stepResult.status,
+                    reason: stepResult.reason,
+                    data: stepResult.data,
+                }),
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                setAiExplanation(`API Error ${res.status}: ${errText}`);
+                return;
+            }
+            const json = await res.json();
+            setAiExplanation(json.explanation || 'No explanation returned.');
+        } catch (err) {
+            setAiExplanation(`Network error: ${err.message}. Is the backend running on port 4000?`);
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
     const handleShowModule = (idx) => {
         setActiveModule(idx);
         setView('module');
+        // Pass current scanResult directly to avoid stale closure
+        fetchGroqExplanation(idx, scanResult);
         window.scrollTo(0, 0);
     };
 
@@ -215,18 +266,38 @@ export default function Dashboard() {
                     <div id="demo-content">
                         <div className="demo-card">
                             <h2 className="text-5xl font-bold text-white mb-6 tracking-tighter">{stages[activeModule].label}</h2>
-                            <p className="text-xl text-slate-300 leading-relaxed mb-8">{stages[activeModule].info}</p>
-                            
-                            {/* If we have specific logs for this module, show them here! */}
+
+                            {/* AI Explanation Section */}
+                            <div className="mb-8 p-5 rounded-lg border border-cyan-500/30 bg-cyan-900/10 relative min-h-[80px]">
+                                <div className="text-[10px] text-cyan-600 font-bold tracking-widest uppercase mb-3 flex items-center gap-2">
+                                    <i className="fas fa-robot"></i> AI ANALYSIS // GROQ
+                                </div>
+                                {aiLoading ? (
+                                    <div className="flex items-center gap-3 text-cyan-400 text-sm">
+                                        <i className="fas fa-spinner fa-spin"></i>
+                                        <span className="font-mono tracking-wider">Querying Groq LLM...</span>
+                                    </div>
+                                ) : aiExplanation ? (
+                                    <p className="text-lg text-slate-200 leading-relaxed font-light">{aiExplanation}</p>
+                                ) : (
+                                    <p className="text-sm text-slate-500 italic">Run a scan first, then click a stage to get a live AI explanation of what happened.</p>
+                                )}
+                            </div>
+
+                            {/* Live Logs from scan */}
                             <div className="p-6 bg-black/50 border-l-4 border-cyan-500 font-mono text-green-500 overflow-x-auto">
                                 &gt; MODULE_ID: {activeModule < 9 ? '0'+(activeModule+1) : (activeModule+1)}<br/>
                                 &gt; STATUS: OPERATIONAL<br/>
                                 &gt; LOGGING: ACTIVE<br/><br/>
-                                {scanResult?.logs.filter(l => l.step === stages[activeModule].name).map((log, idx) => (
-                                    <div key={idx} className={`mt-2 ${log.status === 'BLOCK' || log.status === 'ERROR' ? 'text-red-500' : 'text-green-400'}`}>
-                                        [{new Date(log.timestamp).toLocaleTimeString()}] {log.status}: {log.message}
-                                    </div>
-                                ))}
+                                {scanResult?.logs.filter(l => l.step === stages[activeModule].name).length > 0 ? (
+                                    scanResult.logs.filter(l => l.step === stages[activeModule].name).map((log, idx) => (
+                                        <div key={idx} className={`mt-2 ${log.status === 'BLOCK' || log.status === 'ERROR' ? 'text-red-500' : 'text-green-400'}`}>
+                                            [{new Date(log.timestamp).toLocaleTimeString()}] {log.status}: {log.message}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <span className="text-slate-600">$ No logs for this stage yet. Run a scan to see live results.</span>
+                                )}
                             </div>
                         </div>
                     </div>
