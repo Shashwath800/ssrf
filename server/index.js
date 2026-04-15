@@ -10,6 +10,8 @@ const cors = require("cors");
 const scanRoutes = require("./routes/scan");
 const dnsRoutes = require("./routes/dns");
 const groqRoutes = require("./routes/groq");
+const fakeAwsMetadata = require("./routes/fakeAwsMetadata");
+const attackDemo = require("./routes/attackDemo");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -22,14 +24,19 @@ app.use(express.json());
 app.use("/api", scanRoutes);
 app.use("/api", dnsRoutes);
 app.use("/api", groqRoutes);
+app.use("/api", attackDemo);
+
+// Fake internal services (mounted at root — simulates 169.254.169.254)
+app.use("/", fakeAwsMetadata);
 
 // Health check
 app.get("/", (req, res) => {
   res.json({
     name: "SSRF Simulation Engine",
-    version: "2.0.0",
+    version: "3.0.0",
     endpoints: [
       "POST /api/scan",
+      "POST /api/attack-demo",
       "POST /api/toggle-dns",
       "GET  /api/dns-mode",
       "GET  /api/dns-records",
@@ -37,6 +44,8 @@ app.get("/", (req, res) => {
       "DELETE /api/dns-record/:domain",
       "GET  /api/resolve?domain=",
       "GET  /api/dns-logs",
+      "GET  /latest/meta-data/ (fake AWS)",
+      "GET  /internal/db (fake DB)",
     ],
   });
 });

@@ -88,11 +88,15 @@ export default function Dashboard() {
         }
 
         if (!stepResult) {
-            // No scan data for this step yet — show a helpful message but don't crash
             setAiExplanation(null);
             setAiLoading(false);
             return;
         }
+
+        // Gather logs specific to this step for richer context
+        const stepLogs = (currentScanResult?.logs || [])
+            .filter(l => l.step === stage.name || l.step === stepResult.step)
+            .map(l => `[${l.status}] ${l.message}`);
 
         setAiLoading(true);
         setAiExplanation(null);
@@ -105,6 +109,8 @@ export default function Dashboard() {
                     status: stepResult.status,
                     reason: stepResult.reason,
                     data: stepResult.data,
+                    targetUrl: currentScanResult?.url || '',
+                    stepLogs,
                 }),
             });
             if (!res.ok) {
@@ -141,6 +147,9 @@ export default function Dashboard() {
                     </div>
                     <Link to="/dns-resolver" className="hover:text-cyan-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
                         <i className="fas fa-globe"></i> DNS_RESOLVER
+                    </Link>
+                    <Link to="/attack-demo" className="hover:text-red-400 cursor-pointer flex items-center gap-3 text-slate-400 text-sm transition mt-2">
+                        <i className="fas fa-crosshairs"></i> ATTACK_DEMO
                     </Link>
                     <div className="text-[10px] text-slate-600 uppercase tracking-widest mt-6 mb-2">Modules</div>
                     <div id="sidebar-links" className="space-y-2">

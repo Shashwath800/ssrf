@@ -12,7 +12,7 @@ const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 
 // POST /api/explain-step — Generate AI explanation for a pipeline step
 router.post("/explain-step", async (req, res) => {
-  const { step, status, reason, data } = req.body;
+  const { step, status, reason, data, targetUrl, stepLogs } = req.body;
 
   if (!step) {
     return res.status(400).json({ error: "step is required" });
@@ -22,19 +22,21 @@ router.post("/explain-step", async (req, res) => {
     return res.status(500).json({ error: "GROQ_API_KEY not set in environment variables." });
   }
 
-  const prompt = `You are an SSRF (Server-Side Request Forgery) cybersecurity expert explaining a defense pipeline layer result to a student.
+  const prompt = `You are an SSRF defense pipeline analyzer. A user scanned a URL through a 13-layer SSRF defense system. You must explain SPECIFICALLY what happened at this ONE layer for THIS specific scan. Do NOT give generic descriptions.
 
-Layer: "${step}"
-Result: ${status}
-${reason ? `Block Reason: ${reason}` : ""}
-Technical Data: ${JSON.stringify(data, null, 2)}
+Scanned URL: "${targetUrl || 'unknown'}"
+Defense Layer: "${step}"
+Verdict: ${status}
+${reason ? `Reason: ${reason}` : ""}
+Raw Data: ${JSON.stringify(data, null, 2)}
+${stepLogs?.length ? `Logs:\n${stepLogs.join("\n")}` : ""}
 
-In 2-3 concise sentences, explain:
-1. What this defense layer does
-2. Why it ${status === "BLOCK" ? "blocked the request" : "allowed the request to pass"}
-3. What this means for the security of the system
-
-Be specific about the actual values shown in the data. Use simple language. Do not use markdown formatting.`;
+Rules:
+- Reference the ACTUAL URL "${targetUrl}" and any specific IPs, ports, domains, or headers from the data above.
+- If status is BLOCK, explain exactly WHY this specific URL was blocked at this layer (e.g. "The IP 169.254.169.254 is an AWS metadata endpoint which is blacklisted").
+- If status is PASS, explain what was checked and why this specific URL passed (e.g. "The resolved IP 142.250.190.4 is a public Google IP, not in any private range").
+- Do NOT describe what the layer does in general. ONLY explain what happened to THIS request.
+- Keep it to 2-3 sentences. No markdown. Be direct.`;
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
