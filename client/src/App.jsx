@@ -6,6 +6,7 @@ import RiskAnalyzer from './pages/RiskAnalyzer';
 import MlAnalyzer from './pages/MlAnalyzer';
 import WebhookSettings from './pages/WebhookSettings';
 import LiveMonitor from './pages/LiveMonitor';
+import Landing from './pages/Landing';
 import { ScanProvider } from './ScanContext';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/landing" element={<Landing />} />
           <Route path="/dns-resolver" element={<DnsResolver />} />
           <Route path="/attack-demo" element={<AttackDemo />} />
           <Route path="/risk-analyzer" element={<RiskAnalyzer />} />

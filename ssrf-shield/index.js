@@ -67,11 +67,11 @@ class SSRFShield {
     };
 
     // Helper for resolving domain dynamically (mid-flight simulation)
-    const resolveDomain = (hostname) => {
+    const resolveDomain = async (hostname) => {
       if (this.options.customDnsResolver) {
         return this.options.customDnsResolver(hostname);
       }
-      return dnsResolverDefault.resolve(hostname);
+      return await dnsResolverDefault.resolve(hostname);
     };
 
     // ── Layer 1: Audit & Alert Layer ──
@@ -100,7 +100,7 @@ class SSRFShield {
       if (await addStep(protocolResult)) return { status: overallStatus, steps, logs };
 
       // ── Layer 4: DNS Resolver ──
-      const dnsResult = resolveDomain(parsed.hostname);
+      const dnsResult = await resolveDomain(parsed.hostname);
       if (await addStep(dnsResult)) return { status: overallStatus, steps, logs };
       const resolvedIPs = dnsResult.data.resolvedIPs;
 
@@ -150,7 +150,7 @@ class SSRFShield {
     // ── SIMULATE DNS REBINDING WINDOW ──
     // Just before egress firewall/fetching, re-resolve to simulate the HTTP client's behavior
     // An attacker might change DNS here
-    const lateDnsResult = resolveDomain(parsed.hostname);
+    const lateDnsResult = await resolveDomain(parsed.hostname);
     lockedIP = lateDnsResult.data.resolvedIPs[0] || lockedIP;
     
     // ── Layer 10: Egress Firewall (Network Layer) ──

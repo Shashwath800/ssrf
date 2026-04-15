@@ -16,6 +16,7 @@ const riskAnalyzer = require("./routes/riskAnalyzer");
 const mlAnalyzer = require("./routes/mlAnalyzer");
 const webhookRoutes = require("./routes/webhook");
 const eventsRoutes = require("./routes/events");
+const historyRoutes = require("./routes/history");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -33,6 +34,7 @@ app.use("/api", riskAnalyzer);
 app.use("/api", mlAnalyzer);
 app.use("/api", webhookRoutes);
 app.use("/api", eventsRoutes);
+app.use("/api", historyRoutes);
 
 // Fake internal services (mounted at root — simulates 169.254.169.254)
 app.use("/", fakeAwsMetadata);
@@ -58,6 +60,9 @@ app.get("/", (req, res) => {
       "POST /api/webhook-config",
       "GET  /api/alerts",
       "POST /api/webhook-test",
+      "GET  /api/scans/history",
+      "GET  /api/scans/stats",
+      "DELETE /api/scans/history",
     ],
   });
 });

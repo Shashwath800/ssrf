@@ -6,13 +6,78 @@ const API = '/api';
 const privateRe = /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|169\.254\.)/;
 
 /* ═══════════════════════════════════════════════════════
-   SUB-COMPONENTS
+   MATRIX BACKGROUND CANVAS
    ═══════════════════════════════════════════════════════ */
+function MatrixCanvas() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿ";
+    let drops = [];
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drops = Array(Math.floor(canvas.width / 16)).fill(1);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    const interval = setInterval(() => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.font = "16px monospace";
+      for (let i = 0; i < drops.length; i++) {
+        ctx.fillStyle = Math.random() > 0.9 ? "#fff" : "#0F0";
+        ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * 16, drops[i] * 16);
+        if (drops[i] * 16 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      }
+    }, 50);
+    return () => { clearInterval(interval); window.removeEventListener('resize', resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: 'fixed', top: 0, left: 0, zIndex: -1, opacity: 0.35, pointerEvents: 'none' }} />;
+}
 
+/* ═══════════════════════════════════════════════════════
+   PANEL WRAPPER
+   ═══════════════════════════════════════════════════════ */
+const panelStyle = {
+  background: 'rgba(5, 7, 10, 0.92)',
+  border: '1px solid rgba(0, 243, 255, 0.1)',
+  borderRadius: '18px',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  backdropFilter: 'blur(15px)',
+};
+
+function PanelHeader({ children, right }) {
+  return (
+    <div style={{
+      background: 'rgba(0, 243, 255, 0.05)',
+      borderBottom: '1px solid rgba(0, 243, 255, 0.1)',
+      padding: '12px 18px',
+      fontFamily: "'Orbitron', sans-serif",
+      fontSize: '10px',
+      color: '#00f3ff',
+      letterSpacing: '2px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      textTransform: 'uppercase',
+    }}>
+      <span>{children}</span>
+      {right}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   INLINE IP EDITOR (for records table)
+   ═══════════════════════════════════════════════════════ */
 function InlineIpEditor({ domain, currentIP, onInstantUpdate }) {
   const [ip, setIp] = useState(currentIP);
   const [flash, setFlash] = useState(false);
-
   useEffect(() => { setIp(currentIP); }, [currentIP]);
 
   const apply = (newIP) => {
@@ -24,417 +89,564 @@ function InlineIpEditor({ domain, currentIP, onInstantUpdate }) {
   };
 
   const presets = [
-    { label: '☁️ Metadata', ip: '169.254.169.254', color: 'red' },
-    { label: '🏠 Localhost', ip: '127.0.0.1', color: 'yellow' },
-    { label: '✅ Safe', ip: '8.8.8.8', color: 'green' },
+    { label: '☁️ Meta', ip: '169.254.169.254', color: '#ff0055' },
+    { label: '🏠 Loop', ip: '127.0.0.1', color: '#ffaa00' },
+    { label: '✅ Safe', ip: '8.8.8.8', color: '#0f0' },
   ];
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <input value={ip} onChange={e => setIp(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && apply()}
-          className={`w-[130px] px-2 py-1 bg-bg-primary border rounded text-[11px] font-mono text-white focus:outline-none transition-all ${
-            flash ? 'border-yellow-500 ring-1 ring-yellow-500/30' : 'border-slate-700/50 focus:border-indigo-500/50'
-          }`} />
+          style={{
+            width: '120px', padding: '4px 8px', background: '#000',
+            border: flash ? '1px solid #ffaa00' : '1px solid #333',
+            borderRadius: '6px', color: '#00f3ff', fontFamily: 'monospace', fontSize: '11px', outline: 'none',
+            transition: 'border-color 0.3s',
+          }} />
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => apply()}
-          className="px-2 py-1 bg-gradient-to-r from-yellow-600/80 to-orange-600/80 text-white text-[10px] font-bold rounded hover:from-yellow-500 hover:to-orange-500 transition-all">
-          Apply ⚡
-        </motion.button>
+          style={{
+            padding: '4px 8px', background: 'linear-gradient(135deg, #d97706, #ea580c)',
+            border: 'none', color: '#fff', fontSize: '9px', fontWeight: 700, borderRadius: '5px', cursor: 'pointer',
+            fontFamily: "'Orbitron', sans-serif",
+          }}>⚡</motion.button>
       </div>
-      <div className="flex gap-1">
+      <div style={{ display: 'flex', gap: '3px' }}>
         {presets.map(p => (
           <motion.button key={p.ip} whileTap={{ scale: 0.9 }}
             onClick={() => { setIp(p.ip); apply(p.ip); }}
-            className={`px-1.5 py-0.5 rounded text-[9px] font-semibold transition-all border ${
-              p.color === 'red' ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' :
-              p.color === 'yellow' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 hover:bg-yellow-500/20' :
-              'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'
-            }`}>{p.label}</motion.button>
+            style={{
+              padding: '2px 6px', borderRadius: '4px', fontSize: '8px', fontWeight: 700,
+              background: `${p.color}15`, color: p.color, border: `1px solid ${p.color}30`,
+              cursor: 'pointer', fontFamily: "'Orbitron', sans-serif", transition: '0.2s',
+            }}>{p.label}</motion.button>
         ))}
       </div>
     </div>
   );
 }
 
-function RecordsTable({ records, onDelete, onEdit, onInstantUpdate }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-slate-700/50 text-slate-500 uppercase tracking-wider">
-            <th className="text-left py-2 px-3 font-semibold">Domain</th>
-            <th className="text-left py-2 px-3 font-semibold">Type</th>
-            <th className="text-left py-2 px-3 font-semibold">Live IP Control</th>
-            <th className="text-left py-2 px-3 font-semibold">All IPs</th>
-            <th className="text-left py-2 px-3 font-semibold">TTL</th>
-            <th className="text-left py-2 px-3 font-semibold">Mode</th>
-            <th className="text-left py-2 px-3 font-semibold">Status</th>
-            <th className="text-right py-2 px-3 font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <AnimatePresence>
-            {records.map((r) => (
-              <motion.tr key={r.domain} layout
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                className="border-b border-slate-800/30 hover:bg-white/[0.02] transition-colors"
-              >
-                <td className="py-2.5 px-3 font-mono text-indigo-300 text-[11px]">{r.domain}</td>
-                <td className="py-2.5 px-3 text-slate-400">{r.type}</td>
-                <td className="py-2.5 px-3">
-                  <InlineIpEditor domain={r.domain} currentIP={r.currentIP} onInstantUpdate={onInstantUpdate} />
-                </td>
-                <td className="py-2.5 px-3">
-                  <div className="flex flex-wrap gap-1">
-                    {r.ips.map((ip, i) => (
-                      <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                        ip === r.currentIP ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30' : 'bg-slate-800 text-slate-500'
-                      }`}>{ip}</span>
-                    ))}
-                  </div>
-                </td>
-                <td className="py-2.5 px-3 font-mono text-slate-400">{r.ttl}s</td>
-                <td className="py-2.5 px-3">
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    r.mode === 'rebinding' ? 'bg-red-500/15 text-red-400' : 'bg-green-500/15 text-green-400'
-                  }`}>{r.mode.toUpperCase()}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span className="flex items-center gap-1 text-green-400 text-[10px]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400" />{r.status}
-                  </span>
-                </td>
-                <td className="py-2.5 px-3 text-right space-x-2">
-                  <button onClick={() => onEdit(r)} className="text-indigo-400 hover:text-indigo-300 text-[10px] font-semibold">Edit</button>
-                  <button onClick={() => onDelete(r.domain)} className="text-red-400 hover:text-red-300 text-[10px] font-semibold">Delete</button>
-                </td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
-          {records.length === 0 && (
-            <tr><td colSpan={8} className="py-8 text-center text-slate-600 text-xs">No DNS records. Add one above.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function RedirectsTable({ records, onDelete, onEdit }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-slate-700/50 text-slate-500 uppercase tracking-wider">
-            <th className="text-left py-2 px-3 font-semibold">Domain</th>
-            <th className="text-left py-2 px-3 font-semibold">Target (URL or CNAME)</th>
-            <th className="text-right py-2 px-3 font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <AnimatePresence>
-            {records.map((r) => (
-              <motion.tr key={r.domain} layout
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}
-                className="border-b border-slate-800/30 hover:bg-white/[0.02] transition-colors"
-              >
-                <td className="py-2.5 px-3 font-mono text-indigo-300 text-[11px]">{r.domain}</td>
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-blue-400 text-xs font-bold">302 🔀</span>
-                    <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded text-[10px] font-mono">
-                      {r.redirectTarget}
-                    </span>
-                  </div>
-                </td>
-                <td className="py-2.5 px-3 text-right space-x-2">
-                  <button onClick={() => onEdit(r)} className="text-indigo-400 hover:text-indigo-300 text-[10px] font-semibold">Edit</button>
-                  <button onClick={() => onDelete(r.domain)} className="text-red-400 hover:text-red-300 text-[10px] font-semibold">Delete</button>
-                </td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
-          {records.length === 0 && (
-            <tr><td colSpan={3} className="py-8 text-center text-slate-600 text-xs">No redirect rules. Add one above.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
+/* ═══════════════════════════════════════════════════════
+   CONFIGURATOR PANEL — IP RECORDS FORM
+   ═══════════════════════════════════════════════════════ */
 function RecordForm({ editRecord, onSave, onCancel }) {
-  const [domain, setDomain] = useState(editRecord?.domain || '');
-  const [ips, setIps] = useState(editRecord?.ips?.join(', ') || '');
+  const [domain, setDomain] = useState(editRecord?.domain || 'evil.rebind.attacker.com');
+  const [ips, setIps] = useState(editRecord?.ips?.join(', ') || '8.8.8.8, 169.254.169.254');
   const [ttl, setTtl] = useState(editRecord?.ttl || 1);
-  const [mode, setMode] = useState(editRecord?.mode || 'static');
+  const [mode, setMode] = useState(editRecord?.mode || 'rebinding');
 
-  useEffect(() => { 
-    if (editRecord) { 
-      setDomain(editRecord.domain); 
-      setIps(editRecord.ips.join(', ')); 
-      setTtl(editRecord.ttl); 
-      setMode(editRecord.mode); 
-    } 
+  useEffect(() => {
+    if (editRecord) { setDomain(editRecord.domain); setIps(editRecord.ips.join(', ')); setTtl(editRecord.ttl); setMode(editRecord.mode); }
   }, [editRecord]);
 
-  const handleSubmit = (e) => { 
-    e.preventDefault(); 
-    onSave({ 
-      domain, 
-      ips: ips.split(',').map(s => s.trim()).filter(Boolean), 
-      ttl: Number(ttl), 
-      mode, 
-      type: 'A' 
-    }); 
-    if (!editRecord) { 
-      setDomain(''); setIps(''); setTtl(1); setMode('static');
-    } 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ domain, ips: ips.split(',').map(s => s.trim()).filter(Boolean), ttl: Number(ttl), mode, type: 'A' });
+    if (!editRecord) { setDomain(''); setIps(''); setTtl(1); setMode('static'); }
   };
-  
-  const ic = "w-full px-3 py-2 bg-bg-primary border border-slate-700/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20";
+
+  const inputStyle = {
+    background: '#000', border: '1px solid #333', color: '#00f3ff',
+    padding: '8px 12px', fontSize: '12px', fontFamily: 'monospace', outline: 'none',
+    width: '100%', marginBottom: '8px', borderRadius: '8px',
+  };
+  const labelStyle = {
+    fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#64748b',
+    marginBottom: '4px', display: 'block', fontWeight: 'bold', textTransform: 'uppercase',
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Domain</label>
-          <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil.attacker.com" className={ic} required disabled={!!editRecord} /></div>
-        <div>
-          <label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">IP Address(es) <span className="text-slate-600">comma-separated</span></label>
-          <input value={ips} onChange={e => setIps(e.target.value)} placeholder="8.8.8.8, 169.254.169.254" className={ic} required />
-        </div>
+    <form onSubmit={handleSubmit} style={{ padding: '20px', flex: 1 }}>
+      <label style={labelStyle}>Target Domain</label>
+      <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil.attacker.com" style={inputStyle} required disabled={!!editRecord} />
+
+      <label style={labelStyle}>IP Pool</label>
+      <textarea value={ips} onChange={e => setIps(e.target.value)} placeholder="8.8.8.8, 169.254.169.254"
+        style={{ ...inputStyle, height: '56px', resize: 'none' }} required />
+
+      <div style={{
+        marginBottom: '12px', background: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.15)',
+        padding: '8px', borderRadius: '10px',
+      }}>
+        <span style={{ fontSize: '9px', color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Amazon Metadata IP:</span>
+        <code style={{ fontSize: '12px', color: '#bfdbfe', fontFamily: 'monospace', fontWeight: 700 }}>169.254.169.254</code>
       </div>
-      
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">TTL (seconds)</label>
-          <input type="number" min={1} value={ttl} onChange={e => setTtl(e.target.value)} className={ic} /></div>
-        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Mode</label>
-          <select value={mode} onChange={e => setMode(e.target.value)} className={`${ic} appearance-none`}>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+        <div>
+          <label style={labelStyle}>TTL (SEC)</label>
+          <input type="number" min={1} value={ttl} onChange={e => setTtl(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Mode</label>
+          <select value={mode} onChange={e => setMode(e.target.value)} style={{ ...inputStyle, appearance: 'none' }}>
             <option value="static">Static</option>
             <option value="rebinding">Rebinding</option>
           </select>
         </div>
-        <div className="flex items-end gap-2">
-          <motion.button type="submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            className="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-blue-700 text-white text-xs font-bold rounded-lg">
-            {editRecord ? '💾 Update' : '+ Add Record'}</motion.button>
-          {editRecord && <button type="button" onClick={onCancel} className="px-3 py-2 bg-slate-800 text-slate-400 text-xs rounded-lg hover:bg-slate-700">Cancel</button>}
-        </div>
       </div>
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <motion.button type="submit" whileTap={{ scale: 0.97 }}
+          style={{
+            flex: 1, background: '#2563eb', padding: '12px', border: 'none', color: '#fff',
+            fontFamily: "'Orbitron', sans-serif", fontSize: '10px', fontWeight: 700,
+            textTransform: 'uppercase', borderRadius: '10px', cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(37,99,235,0.3)',
+          }}>
+          {editRecord ? '💾 Update' : '+ Initialize'}
+        </motion.button>
+        {editRecord && (
+          <button type="button" onClick={onCancel}
+            style={{ padding: '12px 16px', background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', fontSize: '10px', borderRadius: '10px', cursor: 'pointer' }}>Cancel</button>
+        )}
+      </div>
+
       {mode === 'rebinding' && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-          className="bg-red-500/5 border border-red-500/20 rounded-lg p-3 text-xs text-red-300">
-          ⚠ <strong>Rebinding mode:</strong> DNS rotates through IPs every {ttl}s.
-        </motion.div>
+        <div style={{
+          marginTop: '12px', background: 'rgba(0,243,255,0.05)', border: '1px solid rgba(0,243,255,0.15)',
+          padding: '10px', borderRadius: '10px',
+        }}>
+          <p style={{ fontSize: '10px', color: '#67e8f9', fontWeight: 700, fontStyle: 'italic', lineHeight: 1.5, margin: 0 }}>
+            ℹ REBINDING: DNS rotates through IPs every {ttl}s to simulate TOCTOU attack.
+          </p>
+        </div>
       )}
     </form>
   );
 }
 
+/* ═══════════════════════════════════════════════════════
+   CONFIGURATOR PANEL — REDIRECT FORM
+   ═══════════════════════════════════════════════════════ */
 function RedirectForm({ editRecord, onSave, onCancel }) {
   const [domain, setDomain] = useState(editRecord?.domain || '');
   const [redirectTarget, setRedirectTarget] = useState(editRecord?.redirectTarget || '');
 
-  useEffect(() => { 
-    if (editRecord) { 
-      setDomain(editRecord.domain); 
-      setRedirectTarget(editRecord.redirectTarget || '');
-    } 
+  useEffect(() => {
+    if (editRecord) { setDomain(editRecord.domain); setRedirectTarget(editRecord.redirectTarget || ''); }
   }, [editRecord]);
 
-  const handleSubmit = (e) => { 
-    e.preventDefault(); 
-    onSave({ 
-      domain, 
-      ips: ['8.8.8.8'], // Mock safe IP to pass initial validator
-      ttl: 300, 
-      mode: 'redirect', 
-      redirectTarget,
-      type: 'A' 
-    }); 
-    if (!editRecord) { 
-      setDomain(''); setRedirectTarget('');
-    } 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({ domain, ips: ['8.8.8.8'], ttl: 300, mode: 'redirect', redirectTarget, type: 'A' });
+    if (!editRecord) { setDomain(''); setRedirectTarget(''); }
   };
-  
-  const ic = "w-full px-3 py-2 bg-bg-primary border border-slate-700/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20";
+
+  const inputStyle = {
+    background: '#000', border: '1px solid #333', color: '#00f3ff',
+    padding: '8px 12px', fontSize: '12px', fontFamily: 'monospace', outline: 'none',
+    width: '100%', marginBottom: '8px', borderRadius: '8px',
+  };
+  const labelStyle = {
+    fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#64748b',
+    marginBottom: '4px', display: 'block', fontWeight: 'bold', textTransform: 'uppercase',
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Domain</label>
-          <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil-redirect.com" className={ic} required disabled={!!editRecord} /></div>
-        <div>
-          <label className="text-[10px] text-slate-500 uppercase font-semibold mb-1 block">Target URL or CNAME</label>
-          <input value={redirectTarget} onChange={e => setRedirectTarget(e.target.value)} placeholder="http://169.254.169.254/ or internal.local" className={ic} required />
-        </div>
+    <form onSubmit={handleSubmit} style={{ padding: '20px', flex: 1 }}>
+      <label style={labelStyle}>Target Domain</label>
+      <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="evil-redirect.com" style={inputStyle} required disabled={!!editRecord} />
+
+      <label style={labelStyle}>Destination URL</label>
+      <input value={redirectTarget} onChange={e => setRedirectTarget(e.target.value)} placeholder="http://169.254.169.254/" style={inputStyle} required />
+
+      <div style={{
+        background: 'rgba(0,243,255,0.04)', border: '1px solid rgba(0,243,255,0.15)',
+        padding: '10px', borderRadius: '10px', marginTop: '8px', marginBottom: '12px',
+      }}>
+        <p style={{ fontSize: '10px', color: '#67e8f9', fontWeight: 700, fontStyle: 'italic', lineHeight: 1.5, margin: 0 }}>
+          ℹ REDIRECT BYPASS: System resolves via mocked IP to bypass firewall.
+        </p>
       </div>
-      <div className="flex items-end gap-2 mt-2">
-        <motion.button type="submit" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-xs font-bold rounded-lg">
-          {editRecord ? '💾 Update Rule' : '+ Add Redirect Rule'}</motion.button>
-        {editRecord && <button type="button" onClick={onCancel} className="px-3 py-2 bg-slate-800 text-slate-400 text-xs rounded-lg hover:bg-slate-700">Cancel</button>}
+
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <motion.button type="submit" whileTap={{ scale: 0.97 }}
+          style={{
+            flex: 1, background: '#2563eb', padding: '12px', border: 'none', color: '#fff',
+            fontFamily: "'Orbitron', sans-serif", fontSize: '10px', fontWeight: 700,
+            textTransform: 'uppercase', borderRadius: '10px', cursor: 'pointer',
+            boxShadow: '0 4px 15px rgba(37,99,235,0.3)',
+          }}>
+          {editRecord ? '💾 Update Rule' : '+ Deploy Vector'}
+        </motion.button>
+        {editRecord && (
+          <button type="button" onClick={onCancel}
+            style={{ padding: '12px 16px', background: '#1e293b', border: '1px solid #334155', color: '#94a3b8', fontSize: '10px', borderRadius: '10px', cursor: 'pointer' }}>Cancel</button>
+        )}
       </div>
-      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-        className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 text-xs text-blue-300 mt-2">
-        ℹ <strong>Note:</strong> Redirection occurs at Layer 8. The pipeline will initially resolve this domain via a safe mocked IP to bypass network firewall validations.
-      </motion.div>
     </form>
   );
 }
 
-function LiveResolution({ domain, ips, currentIP, ttl, ttlRemaining, mode, redirectTarget }) {
-  const isPriv = privateRe.test(currentIP);
-  const pct = mode === 'rebinding' && ttl > 0 ? Math.max(0, (ttlRemaining / (ttl * 1000)) * 100) : 100;
+/* ═══════════════════════════════════════════════════════
+   RESOLUTION FLOW + LIVE IP DISPLAY
+   ═══════════════════════════════════════════════════════ */
+function FlowVisualization({ records, queryResult, querying }) {
+  // Pick the most interesting record for the big IP: first rebinding record, or query result, or first record
+  const rebinding = records.find(r => r.mode === 'rebinding');
+  const displayIP = queryResult?.ips?.[0] || rebinding?.currentIP || records[0]?.currentIP || '8.8.8.8';
+  const isPriv = privateRe.test(displayIP);
+
   return (
-    <div className="bg-bg-primary/50 rounded-lg p-3 border border-slate-700/30">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-indigo-300 text-xs">{domain}</span>
-        {mode === 'rebinding' && <span className="text-[10px] text-yellow-400 font-mono">TTL: {Math.ceil((ttlRemaining || 0) / 1000)}s</span>}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
+      {/* Flow path */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+        {[
+          { icon: '💻', label: 'CLIENT' },
+          null, // connector
+          { icon: '🌐', label: 'RESOLVER', active: true },
+          null, // connector
+          { icon: '🖥️', label: 'DNS_HOST' },
+        ].map((item, i) => {
+          if (!item) return (
+            <div key={`c-${i}`} style={{ height: '1px', width: '50px', background: 'rgba(0,243,255,0.15)' }} />
+          );
+          return (
+            <div key={item.label} style={{
+              border: `1px solid ${item.active ? '#00f3ff' : 'rgba(0,243,255,0.2)'}`,
+              background: '#000', padding: '12px 16px', borderRadius: '12px', textAlign: 'center',
+              minWidth: '80px',
+              boxShadow: item.active ? '0 0 20px rgba(0,243,255,0.2)' : 'none',
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '4px' }}>{item.icon}</div>
+              <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: '9px', fontWeight: 700, color: '#94a3b8' }}>{item.label}</span>
+            </div>
+          );
+        })}
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {ips.map((ip, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <motion.span animate={{ scale: ip === currentIP ? 1.05 : 0.95, opacity: ip === currentIP ? 1 : 0.4 }}
-              className={`px-2 py-1 rounded text-[11px] font-mono font-bold ${
-                ip === currentIP ? (privateRe.test(ip) ? 'bg-red-500/20 text-red-400 ring-1 ring-red-500/50' : 'bg-green-500/20 text-green-400 ring-1 ring-green-500/50') : 'bg-slate-800 text-slate-500'
-              }`}>{ip}</motion.span>
-            {i < ips.length - 1 && <span className="text-slate-600 text-[10px]">→</span>}
-          </div>
-        ))}
-        {mode === 'redirect' && (
-          <div className="flex items-center gap-1.5 ml-2 mt-1">
-            <span className="text-blue-400 text-[10px] font-bold">302 🔀</span>
-            <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-300 rounded text-[10px] font-mono">
-              {redirectTarget}
-            </span>
-          </div>
-        )}
+
+      {/* Big IP display */}
+      <motion.div
+        key={displayIP}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        style={{
+          marginTop: '40px',
+          fontSize: 'clamp(2rem, 3.5vw, 3.2rem)',
+          fontWeight: 900,
+          fontFamily: 'monospace',
+          color: isPriv ? '#ff0055' : '#0f0',
+          textShadow: isPriv ? '0 0 15px rgba(255,0,85,0.5)' : '0 0 15px rgba(0,255,0,0.5)',
+          letterSpacing: '-1px',
+          transition: 'color 0.5s ease, text-shadow 0.5s ease',
+        }}
+      >
+        {displayIP}
+      </motion.div>
+      <div style={{
+        fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#475569',
+        marginTop: '12px', letterSpacing: '0.4em', textTransform: 'uppercase',
+      }}>
+        Active Packet Destination
       </div>
-      {mode === 'rebinding' && (
-        <div className="mt-2 h-1 bg-slate-800 rounded-full overflow-hidden">
-          <motion.div animate={{ width: `${pct}%` }} transition={{ duration: 0.3 }}
-            className={`h-full rounded-full ${pct < 30 ? 'bg-red-500' : pct < 60 ? 'bg-yellow-500' : 'bg-green-500'}`} />
-        </div>
+
+      {/* Querying indicator */}
+      {querying && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ marginTop: '16px', color: '#818cf8', fontSize: '10px', fontFamily: "'Orbitron', sans-serif" }}
+        >
+          ● RESOLVING...
+        </motion.div>
       )}
     </div>
   );
 }
 
-function DnsQueryLog({ logs }) {
+/* ═══════════════════════════════════════════════════════
+   TELEMETRY PANEL
+   ═══════════════════════════════════════════════════════ */
+function TelemetryPanel({ records, queryResult }) {
+  const [ttlProgress, setTtlProgress] = useState(0);
+  const [ttlDisplay, setTtlDisplay] = useState('1.00s');
+  const startRef = useRef(Date.now());
+
+  const rebinding = records.find(r => r.mode === 'rebinding');
+  const duration = (rebinding?.ttl || 1) * 1000;
+
+  useEffect(() => {
+    const frame = () => {
+      const elapsed = Date.now() - startRef.current;
+      const progress = (elapsed % duration) / duration;
+      const remaining = ((duration - (elapsed % duration)) / 1000).toFixed(2);
+      setTtlProgress(progress);
+      setTtlDisplay(`${remaining}s`);
+      rafRef.current = requestAnimationFrame(frame);
+    };
+    const rafRef = { current: null };
+    rafRef.current = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [duration]);
+
+  // Build resolved chain from records + query
+  const chainEntries = [];
+  records.forEach(r => {
+    (r.ips || []).forEach(ip => {
+      chainEntries.push({ ip, source: r.mode === 'rebinding' ? 'REBIND' : r.mode === 'redirect' ? 'REDIRECT' : 'STATIC', domain: r.domain });
+    });
+  });
+  if (queryResult?.ips) {
+    queryResult.ips.forEach(ip => {
+      if (!chainEntries.find(e => e.ip === ip)) {
+        chainEntries.push({ ip, source: 'QUERY' });
+      }
+    });
+  }
+
+  const displayIP = queryResult?.ips?.[0] || rebinding?.currentIP || records[0]?.currentIP || '8.8.8.8';
+  const isPriv = privateRe.test(displayIP);
+  const verdictSecure = !isPriv && records.filter(r => r.mode === 'rebinding').length === 0;
+
+  return (
+    <div style={{ ...panelStyle, minHeight: '480px' }}>
+      <PanelHeader right={<span style={{ fontSize: '14px' }}>⚙️</span>}>Telemetry</PanelHeader>
+      <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+        {/* TTL Pulse */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#64748b', fontWeight: 700 }}>TTL PULSE</span>
+          <span style={{ color: '#00f3ff', fontFamily: 'monospace', fontWeight: 700, fontSize: '12px' }}>{ttlDisplay}</span>
+        </div>
+        <div style={{ width: '100%', background: '#0f172a', height: '3px', borderRadius: '10px', marginBottom: '24px' }}>
+          <div style={{
+            background: '#00f3ff', height: '100%', borderRadius: '10px',
+            width: `${ttlProgress * 100}%`, transition: 'width 0.05s linear',
+          }} />
+        </div>
+
+        {/* Quick Resolve */}
+        <div style={{ marginBottom: '20px' }}>
+          <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+            Active Resolution
+          </span>
+          <div style={{
+            padding: '10px 14px', borderRadius: '10px',
+            background: isPriv ? 'rgba(255,0,85,0.06)' : 'rgba(0,255,0,0.04)',
+            border: `1px solid ${isPriv ? 'rgba(255,0,85,0.2)' : 'rgba(0,255,0,0.15)'}`,
+          }}>
+            <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 900, color: isPriv ? '#ff0055' : '#0f0' }}>{displayIP}</span>
+          </div>
+        </div>
+
+        {/* Resolved Chain */}
+        <span style={{ fontFamily: "'Orbitron', sans-serif", fontSize: '9px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: '10px' }}>
+          Resolved Chain
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {chainEntries.length === 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'monospace' }}>
+              <span style={{ color: '#64748b' }}>8.8.8.8</span>
+              <span style={{ color: '#22c55e' }}>[STATIC]</span>
+            </div>
+          ) : (
+            chainEntries.slice(0, 10).map((e, i) => (
+              <div key={`${e.ip}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'monospace' }}>
+                <span style={{ color: privateRe.test(e.ip) ? '#ff0055' : '#94a3b8' }}>{e.ip}</span>
+                <span style={{ color: e.source === 'REBIND' ? '#ff0055' : e.source === 'REDIRECT' ? '#3b82f6' : '#22c55e', fontWeight: 700, fontSize: '9px' }}>
+                  [{e.source}]
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Verdict */}
+      <div style={{
+        padding: '14px 20px',
+        background: verdictSecure ? 'rgba(34,197,94,0.08)' : 'rgba(255,0,85,0.08)',
+        color: verdictSecure ? '#22c55e' : '#ff0055',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        textAlign: 'center',
+        fontFamily: "'Orbitron', sans-serif",
+        fontWeight: 700,
+        fontSize: '11px',
+        letterSpacing: '1px',
+      }}>
+        VERDICT: {verdictSecure ? 'SECURE' : 'THREAT DETECTED'}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   RECORDS TABLE (NODE RECORD TOPOLOGY)
+   ═══════════════════════════════════════════════════════ */
+function NodeTopologyTable({ records, onDelete, onEdit, onInstantUpdate, activeTab, setActiveTab }) {
+  const tableHead = { color: '#555', fontFamily: "'Orbitron', sans-serif", fontSize: '8px', textAlign: 'left', padding: '10px', borderBottom: '1px solid #222' };
+  const tableCell = { padding: '10px', borderBottom: '1px solid #111', fontSize: '11px' };
+
+  return (
+    <div style={{ ...panelStyle, minHeight: '240px' }}>
+      <PanelHeader right={
+        <div style={{
+          display: 'flex', background: '#000', padding: '3px', borderRadius: '10px',
+          border: '1px solid rgba(255,255,255,0.1)', gap: '4px',
+        }}>
+          <button onClick={() => setActiveTab('standard')}
+            style={{
+              background: activeTab === 'standard' ? '#2563eb' : 'transparent',
+              color: activeTab === 'standard' ? '#fff' : '#555',
+              padding: '6px 10px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
+              borderRadius: '7px', border: 'none', cursor: 'pointer',
+              fontFamily: "'Orbitron', sans-serif", transition: '0.3s',
+              boxShadow: activeTab === 'standard' ? '0 0 10px rgba(37,99,235,0.5)' : 'none',
+            }}>IP Records</button>
+          <button onClick={() => setActiveTab('redirect')}
+            style={{
+              background: activeTab === 'redirect' ? '#2563eb' : 'transparent',
+              color: activeTab === 'redirect' ? '#fff' : '#555',
+              padding: '6px 10px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
+              borderRadius: '7px', border: 'none', cursor: 'pointer',
+              fontFamily: "'Orbitron', sans-serif", transition: '0.3s',
+              boxShadow: activeTab === 'redirect' ? '0 0 10px rgba(37,99,235,0.5)' : 'none',
+            }}>Redirects</button>
+        </div>
+      }>Node Record Topology</PanelHeader>
+
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {activeTab === 'standard' ? (
+          <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={tableHead}>Record Host</th>
+                <th style={tableHead}>Live IP Control</th>
+                <th style={tableHead}>Live IP Pool</th>
+                <th style={tableHead}>Mode</th>
+                <th style={tableHead}>State</th>
+                <th style={{ ...tableHead, textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {records.filter(r => r.mode !== 'redirect').map(r => (
+                  <motion.tr key={r.domain} layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+                    <td style={{ ...tableCell, color: '#00f3ff', fontWeight: 700, fontFamily: 'monospace' }}>{r.domain}</td>
+                    <td style={tableCell}>
+                      <InlineIpEditor domain={r.domain} currentIP={r.currentIP} onInstantUpdate={onInstantUpdate} />
+                    </td>
+                    <td style={{ ...tableCell, fontFamily: 'monospace', color: '#64748b', fontSize: '10px' }}>{r.ips?.join(', ')}</td>
+                    <td style={tableCell}>
+                      <span style={{
+                        fontFamily: "'Orbitron', sans-serif", fontSize: '9px', fontWeight: 700,
+                        color: r.mode === 'rebinding' ? '#ff0055' : '#22c55e',
+                      }}>{r.mode?.toUpperCase()}</span>
+                    </td>
+                    <td style={tableCell}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#22c55e' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                        ACTIVE
+                      </span>
+                    </td>
+                    <td style={{ ...tableCell, textAlign: 'right' }}>
+                      <button onClick={() => onEdit(r)} style={{ color: '#818cf8', fontSize: '10px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginRight: '8px' }}>Edit</button>
+                      <button onClick={() => onDelete(r.domain)} style={{ color: '#ff0055', fontSize: '10px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+              {records.filter(r => r.mode !== 'redirect').length === 0 && (
+                <tr><td colSpan={6} style={{ ...tableCell, textAlign: 'center', color: '#334155', padding: '30px' }}>No IP records configured</td></tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={tableHead}>Record Host</th>
+                <th style={tableHead}>Redirect Target</th>
+                <th style={{ ...tableHead, textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {records.filter(r => r.mode === 'redirect').map(r => (
+                  <motion.tr key={r.domain} layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+                    <td style={{ ...tableCell, color: '#00f3ff', fontWeight: 700, fontFamily: 'monospace' }}>{r.domain}</td>
+                    <td style={tableCell}>
+                      <span style={{ color: '#3b82f6', fontSize: '11px', fontWeight: 700, marginRight: '6px' }}>302 🔀</span>
+                      <span style={{
+                        padding: '3px 8px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+                        color: '#93c5fd', borderRadius: '4px', fontFamily: 'monospace', fontSize: '10px',
+                      }}>{r.redirectTarget}</span>
+                    </td>
+                    <td style={{ ...tableCell, textAlign: 'right' }}>
+                      <button onClick={() => onEdit(r)} style={{ color: '#818cf8', fontSize: '10px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', marginRight: '8px' }}>Edit</button>
+                      <button onClick={() => onDelete(r.domain)} style={{ color: '#ff0055', fontSize: '10px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+              {records.filter(r => r.mode === 'redirect').length === 0 && (
+                <tr><td colSpan={3} style={{ ...tableCell, textAlign: 'center', color: '#334155', padding: '30px' }}>No redirect rules configured</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   THREAT STREAM LOG
+   ═══════════════════════════════════════════════════════ */
+function ThreatStreamLog({ logs, onClear }) {
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [logs]);
+
   const eventColor = (e) => {
     switch (e) {
-      case 'REBOUND': case 'ATTACK': return 'text-red-400';
-      case 'TTL_EXPIRE': case 'DNS_CHANGED': return 'text-yellow-400';
-      case 'STATIC': case 'RESOLVE': return 'text-green-400';
-      default: return 'text-slate-400';
+      case 'REBOUND': case 'ATTACK': return '#ff0055';
+      case 'TTL_EXPIRE': case 'DNS_CHANGED': return '#ffaa00';
+      case 'STATIC': case 'RESOLVE': return '#0f0';
+      default: return '#64748b';
     }
   };
+
   return (
-    <div className="bg-[#0d1117] border border-[#30363d] rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2 bg-[#161b22] border-b border-[#30363d]">
-        <div className="flex gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500/80" /><div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" /><div className="w-2.5 h-2.5 rounded-full bg-green-500/80" /></div>
-        <span className="text-[10px] text-slate-500 ml-2 font-mono">dns-query-log — {logs.length} entries</span>
-      </div>
-      <div ref={scrollRef} className="p-3 font-mono text-[11px] leading-5 max-h-[250px] overflow-y-auto">
-        {logs.length === 0 ? <div className="text-slate-600">$ Waiting for DNS queries...</div> :
+    <div style={{ ...panelStyle, minHeight: '240px' }}>
+      <PanelHeader right={
+        <button onClick={onClear} style={{
+          background: 'none', border: 'none', color: '#475569', fontSize: '9px',
+          cursor: 'pointer', fontFamily: "'Orbitron', sans-serif",
+        }}>CLEAR</button>
+      }>Threat Stream Log</PanelHeader>
+      <div ref={scrollRef} style={{
+        background: 'rgba(0,0,0,0.6)', padding: '12px 15px', fontFamily: 'monospace', fontSize: '11px',
+        color: '#10b981', overflowY: 'auto', flex: 1,
+      }}>
+        {logs.length === 0 ? (
+          <div style={{ opacity: 0.5, fontSize: '10px' }}>[--:--:--] RESOLVER_INIT WAITING...</div>
+        ) : (
           logs.slice(0, 60).map((l, i) => (
-            <motion.div key={l.time + '-' + i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.02 }} className="flex gap-2 hover:bg-white/[0.02] px-1 rounded">
-              <span className="text-slate-600 shrink-0">{new Date(l.time).toLocaleTimeString('en-US', { hour12: false })}</span>
-              <span className={`shrink-0 font-bold w-20 ${eventColor(l.event)}`}>{l.event}</span>
-              <span className="text-blue-400 shrink-0">{l.domain}</span>
-              <span className="text-slate-600">→</span>
-              <span className={`font-bold ${privateRe.test(l.ip) ? 'text-red-400' : 'text-green-400'}`}>{l.ip}</span>
-              {l.note && <span className="text-slate-600 truncate ml-1 hidden xl:inline">— {l.note}</span>}
+            <motion.div key={`${l.time}-${i}`} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.01 }}
+              style={{ display: 'flex', gap: '8px', padding: '2px 4px', borderRadius: '3px', lineHeight: '18px' }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.02)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}
+            >
+              <span style={{ color: '#334155', flexShrink: 0, fontSize: '10px' }}>
+                {new Date(l.time).toLocaleTimeString('en-US', { hour12: false })}
+              </span>
+              <span style={{ color: eventColor(l.event), flexShrink: 0, fontWeight: 700, width: '70px', fontSize: '10px' }}>{l.event}</span>
+              <span style={{ color: '#3b82f6', flexShrink: 0, fontSize: '10px' }}>{l.domain}</span>
+              <span style={{ color: '#334155' }}>→</span>
+              <span style={{ color: privateRe.test(l.ip) ? '#ff0055' : '#0f0', fontWeight: 700, fontSize: '10px' }}>{l.ip}</span>
             </motion.div>
           ))
-        }
+        )}
       </div>
     </div>
-  );
-}
-
-function NetworkSvg({ domain, currentIP, querying, dnsEvent }) {
-  const isPriv = privateRe.test(currentIP || '');
-  const ipColor = isPriv ? '#ef4444' : '#22c55e';
-  const showAttackLabel = dnsEvent === 'ATTACK' || dnsEvent === 'DNS_CHANGED';
-
-  return (
-    <svg viewBox="0 0 500 130" className="w-full" style={{ minHeight: '110px' }}>
-      <defs>
-        <filter id="svg-glow-g" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="3" result="b" /><feFlood floodColor="#22c55e" floodOpacity="0.4" result="c" />
-          <feComposite in="c" in2="b" operator="in" result="s" /><feMerge><feMergeNode in="s" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <filter id="svg-glow-r" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="4" result="b" /><feFlood floodColor="#ef4444" floodOpacity="0.5" result="c" />
-          <feComposite in="c" in2="b" operator="in" result="s" /><feMerge><feMergeNode in="s" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <path id="q-path" d="M 85 65 L 250 65 L 415 65" fill="none" />
-      </defs>
-
-      {/* Client */}
-      <rect x="10" y="40" width="75" height="50" rx="10" fill="#334155" stroke="#475569" strokeWidth="1.5" />
-      <text x="47" y="60" textAnchor="middle" fontSize="14">💻</text>
-      <text x="47" y="77" textAnchor="middle" fontSize="8" fill="#94a3b8">Client</text>
-
-      {/* Arrows */}
-      <line x1="85" y1="65" x2="165" y2="65" stroke="#475569" strokeWidth="1.5" />
-      <line x1="335" y1="65" x2="415" y2="65" stroke={ipColor} strokeWidth="1.5" />
-      <text x="125" y="55" textAnchor="middle" fontSize="7" fill="#64748b">Query</text>
-      <text x="375" y="55" textAnchor="middle" fontSize="7" fill="#64748b">Response</text>
-
-      {/* DNS Server */}
-      <motion.rect x="165" y="35" width="170" height="60" rx="12" fill="#1e293b"
-        animate={{ stroke: showAttackLabel ? '#f59e0b' : '#6366f1' }}
-        strokeWidth="1.5">
-        {showAttackLabel && <animate attributeName="stroke-opacity" values="1;0.3;1" dur="0.4s" repeatCount="3" />}
-      </motion.rect>
-      <text x="250" y="57" textAnchor="middle" fontSize="12">🌐</text>
-      <text x="250" y="73" textAnchor="middle" fontSize="8" fill="#a5b4fc" fontWeight="600">DNS Server</text>
-      <text x="250" y="85" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">{domain || '...'}</text>
-
-      {/* Resolved IP */}
-      <motion.rect x="415" y="40" width="75" height="50" rx="10"
-        animate={{ fill: ipColor + '20', stroke: ipColor }}
-        transition={{ duration: 0.3 }}
-        strokeWidth="1.5" filter={isPriv ? 'url(#svg-glow-r)' : 'url(#svg-glow-g)'} />
-      <text x="452" y="60" textAnchor="middle" fontSize="11">🎯</text>
-      <motion.text key={currentIP} x="452" y="77" textAnchor="middle" fontSize="7" fontFamily="monospace" fontWeight="700"
-        initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0, fill: ipColor }}>
-        {currentIP || '...'}
-      </motion.text>
-
-      {/* Attack label */}
-      <AnimatePresence>
-        {showAttackLabel && (
-          <motion.g initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <rect x="170" y="6" width="160" height="18" rx="4" fill="#f59e0b20" stroke="#f59e0b" strokeWidth="1" />
-            <text x="250" y="18" textAnchor="middle" fontSize="8" fill="#f59e0b" fontWeight="700">⚡ DNS Modified During Execution</text>
-          </motion.g>
-        )}
-      </AnimatePresence>
-
-      {/* Animated dot */}
-      {querying && (
-        <circle r="4" fill="#818cf8">
-          <animateMotion dur="1.2s" repeatCount="indefinite"><mpath href="#q-path" /></animateMotion>
-          <animate attributeName="opacity" values="0.5;1;0.5" dur="0.6s" repeatCount="indefinite" />
-        </circle>
-      )}
-    </svg>
   );
 }
 
 
 /* ═══════════════════════════════════════════════════════
-   MAIN PAGE
+   ★★★ MAIN PAGE COMPONENT ★★★
    ═══════════════════════════════════════════════════════ */
-
 export default function DnsResolver() {
   const [records, setRecords] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -443,11 +655,11 @@ export default function DnsResolver() {
   const [queryDomain, setQueryDomain] = useState('');
   const [queryResult, setQueryResult] = useState(null);
   const [querying, setQuerying] = useState(false);
-  const [lastDnsEvent, setLastDnsEvent] = useState(null);
-  const [activeFormTab, setActiveFormTab] = useState('standard');
+  const [activeFormTab, setActiveFormTab] = useState('ip');
   const [activeTableTab, setActiveTableTab] = useState('standard');
   const timerRef = useRef(null);
 
+  /* ── API helpers ── */
   const fetchRecords = useCallback(async () => {
     try { const r = await fetch(`${API}/dns-records`); const d = await r.json(); setRecords(d.records || []); } catch {}
   }, []);
@@ -464,7 +676,6 @@ export default function DnsResolver() {
     return () => clearInterval(timerRef.current);
   }, [autoRebind, fetchRecords, fetchLogs]);
 
-  // ── Instant DNS update ──
   const handleInstantUpdate = async (domain, ip) => {
     try {
       const res = await fetch(`${API}/update-dns-instant`, {
@@ -472,20 +683,12 @@ export default function DnsResolver() {
         body: JSON.stringify({ domain, ip }),
       });
       const data = await res.json();
-      // Immediately update local state from response
       if (data.records) setRecords(data.records);
       if (data.recentLogs) setLogs(prev => {
         const merged = [...data.recentLogs, ...prev.filter(l => !data.recentLogs.some(n => n.time === l.time))];
         return merged.sort((a, b) => b.time - a.time).slice(0, 100);
       });
-      // Flash the SVG
-      const isPriv = privateRe.test(ip);
-      setLastDnsEvent(isPriv ? 'ATTACK' : 'DNS_CHANGED');
-      setTimeout(() => setLastDnsEvent(null), 2000);
-      // Update query result if same domain
-      if (queryResult?.domain === domain) {
-        setQueryResult(prev => ({ ...prev, ips: [ip] }));
-      }
+      if (queryResult?.domain === domain) setQueryResult(prev => ({ ...prev, ips: [ip] }));
     } catch (err) { console.error(err); }
   };
 
@@ -506,152 +709,138 @@ export default function DnsResolver() {
     setTimeout(() => setQuerying(false), 1200);
   };
 
-  const sV = { hidden: { opacity: 0, y: 20 }, visible: (i) => ({ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22, delay: i * 0.08 } }) };
+  const handleClearLogs = async () => {
+    await fetch(`${API}/dns-logs/clear`, { method: 'POST' });
+    setLogs([]);
+  };
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      {/* Header */}
-      <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        className="border-b border-slate-800/50 bg-bg-primary/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="text-slate-400 hover:text-white transition-colors text-sm">← Dashboard</Link>
-            <div className="w-px h-6 bg-slate-800" />
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <span className="text-base">🌐</span>
-              </div>
-              <div>
-                <h1 className="text-base font-bold text-white">DNS Resolver</h1>
-                <p className="text-[10px] text-slate-500">Attacker-Controlled DNS — Live IP Mutation</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/50">{records.length} records</span>
+    <div style={{ background: '#000', minHeight: '100vh', color: '#e2e8f0', fontFamily: "'Rajdhani', sans-serif" }}>
+      <MatrixCanvas />
+
+      {/* ═══ HEADER BAR ═══ */}
+      <div style={{
+        position: 'relative', zIndex: 10, padding: '20px', maxWidth: '1600px', margin: '0 auto',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <Link to="/" style={{
+            color: '#00f3ff', fontFamily: "'Orbitron', sans-serif", fontSize: '10px', fontWeight: 700,
+            background: 'rgba(255,255,255,0.03)', padding: '8px 20px', borderRadius: '100px',
+            border: '1px solid rgba(255,255,255,0.08)', textDecoration: 'none',
+            letterSpacing: '3px', transition: '0.3s', display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            ← MAIN_PIPELINE
+          </Link>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <motion.button whileTap={{ scale: 0.95 }} onClick={() => setAutoRebind(!autoRebind)}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                autoRebind ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30' : 'bg-slate-800 text-slate-500 border border-slate-700/50'
-              }`}>
-              {autoRebind ? '⚡ Auto-Rebind ON' : '⚡ Auto-Rebind OFF'}
+              style={{
+                fontFamily: "'Orbitron', sans-serif", fontSize: '10px', fontWeight: 700,
+                background: autoRebind ? 'rgba(255,170,0,0.08)' : 'rgba(255,255,255,0.03)',
+                color: autoRebind ? '#ffaa00' : '#475569',
+                padding: '8px 16px', borderRadius: '100px',
+                border: autoRebind ? '1px solid rgba(255,170,0,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                cursor: 'pointer', letterSpacing: '1px', transition: '0.3s',
+              }}>
+              {autoRebind ? '⚡ AUTO_REBIND: ON' : '⚡ AUTO_REBIND: OFF'}
             </motion.button>
+
+            <div style={{
+              color: '#22c55e', fontWeight: 700, fontSize: '10px',
+              fontFamily: "'Orbitron', sans-serif", letterSpacing: '3px',
+              background: 'rgba(34,197,94,0.04)', padding: '8px 16px', borderRadius: '100px',
+              border: '1px solid rgba(34,197,94,0.15)',
+              boxShadow: '0 0 15px rgba(34,197,94,0.1)',
+            }}>
+              DNS_RESOLVER_NODE_ACTIVE
+            </div>
           </div>
         </div>
-      </motion.header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-5">
-        {/* Row 1: Add Record + Network Viz */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <motion.div custom={0} initial="hidden" animate="visible" variants={sV}
-            className="lg:col-span-3 bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-500" />{editRecord ? 'Edit Configuration' : 'Add Configuration'}
-              </h2>
-              <div className="flex items-center bg-slate-800/50 p-1 rounded-lg border border-slate-700/50">
-                <button type="button" onClick={() => { setActiveFormTab('standard'); if (editRecord && editRecord.mode === 'redirect') setEditRecord(null); }}
-                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeFormTab === 'standard' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-                  🌐 IP Records
-                </button>
-                <button type="button" onClick={() => { setActiveFormTab('redirect'); if (editRecord && editRecord.mode !== 'redirect') setEditRecord(null); }}
-                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeFormTab === 'redirect' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-                  🔀 Redirects
-                </button>
+        {/* ═══ 3-COLUMN GRID LAYOUT ═══ */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '350px 1fr 340px',
+          gridTemplateRows: 'auto auto',
+          gap: '15px',
+        }}>
+
+          {/* ── Left: Configurator ── */}
+          <div style={{ ...panelStyle, minHeight: '480px' }}>
+            <PanelHeader right={
+              <div style={{
+                display: 'flex', background: '#000', padding: '3px', borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.1)', gap: '4px', width: '210px',
+              }}>
+                <button onClick={() => setActiveFormTab('ip')}
+                  style={{
+                    background: activeFormTab === 'ip' ? '#2563eb' : 'transparent',
+                    color: activeFormTab === 'ip' ? '#fff' : '#555',
+                    padding: '6px 2px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
+                    borderRadius: '7px', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'center',
+                    fontFamily: "'Orbitron', sans-serif", transition: '0.3s',
+                    boxShadow: activeFormTab === 'ip' ? '0 0 10px rgba(37,99,235,0.5)' : 'none',
+                  }}>IP Records</button>
+                <button onClick={() => setActiveFormTab('redirect')}
+                  style={{
+                    background: activeFormTab === 'redirect' ? '#2563eb' : 'transparent',
+                    color: activeFormTab === 'redirect' ? '#fff' : '#555',
+                    padding: '6px 2px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
+                    borderRadius: '7px', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'center',
+                    fontFamily: "'Orbitron', sans-serif", transition: '0.3s',
+                    boxShadow: activeFormTab === 'redirect' ? '0 0 10px rgba(37,99,235,0.5)' : 'none',
+                  }}>Redirects</button>
               </div>
-            </div>
-            
-            {activeFormTab === 'standard' ? (
+            }>Configurator</PanelHeader>
+            {activeFormTab === 'ip' ? (
               <RecordForm editRecord={editRecord && editRecord.mode !== 'redirect' ? editRecord : null} onSave={handleSave} onCancel={() => setEditRecord(null)} />
             ) : (
               <RedirectForm editRecord={editRecord && editRecord.mode === 'redirect' ? editRecord : null} onSave={handleSave} onCancel={() => setEditRecord(null)} />
             )}
-          </motion.div>
-          <motion.div custom={1} initial="hidden" animate="visible" variants={sV}
-            className="lg:col-span-2 bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-500" />Quick Resolve
-            </h2>
-            <div className="flex gap-2 mb-3">
-              <input value={queryDomain} onChange={e => setQueryDomain(e.target.value)} placeholder="Type domain..."
-                onKeyDown={e => e.key === 'Enter' && handleResolve()}
-                className="flex-1 px-3 py-2 bg-bg-primary border border-slate-700/50 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 font-mono" />
-              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={handleResolve}
-                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 text-white text-xs font-bold rounded-lg">🔍 Resolve</motion.button>
-            </div>
-            <NetworkSvg domain={queryDomain || records[0]?.domain || 'example.com'} currentIP={queryResult?.ips?.[0] || records[0]?.currentIP} querying={querying} dnsEvent={lastDnsEvent} />
-          </motion.div>
-        </div>
-
-        {/* Row 2: Records Table with inline editing */}
-        <motion.div custom={2} initial="hidden" animate="visible" variants={sV}
-          className="bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-700/30 pb-3">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />Domain Configurations
-              <span className="text-[10px] font-normal text-slate-600 ml-1 hidden sm:inline">— Edit IP inline or use quick attack buttons</span>
-            </h2>
-            <div className="flex items-center bg-slate-800/50 p-1 rounded-lg border border-slate-700/50">
-              <button onClick={() => setActiveTableTab('standard')}
-                className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeTableTab === 'standard' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-                A Records
-              </button>
-              <button onClick={() => setActiveTableTab('redirect')}
-                className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${activeTableTab === 'redirect' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-                Redirect Rules
-              </button>
-            </div>
           </div>
-          
-          {activeTableTab === 'standard' ? (
-            <RecordsTable records={records.filter(r => r.mode !== 'redirect')} onDelete={handleDelete} onEdit={(r) => { setEditRecord(r); setActiveFormTab('standard'); }} onInstantUpdate={handleInstantUpdate} />
-          ) : (
-            <RedirectsTable records={records.filter(r => r.mode === 'redirect')} onDelete={handleDelete} onEdit={(r) => { setEditRecord(r); setActiveFormTab('redirect'); }} />
-          )}
-        </motion.div>
 
-        {/* Row 3: Live Resolution + Logs */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <motion.div custom={3} initial="hidden" animate="visible" variants={sV}
-            className="bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-yellow-500" />Live DNS Resolution
-              {autoRebind && <span className="text-[10px] text-yellow-400 font-normal ml-1">● live</span>}
-            </h2>
-            <div className="space-y-2">
-              {records.filter(r => r.mode === 'rebinding').length > 0 ? (
-                records.filter(r => r.mode === 'rebinding').map(r => (
-                  <LiveResolution key={r.domain} {...r} />
-                ))
-              ) : <div className="text-xs text-slate-600 py-4 text-center">No rebinding records</div>}
+          {/* ── Center: Resolution Flow Path ── */}
+          <div style={{ ...panelStyle, minHeight: '480px' }}>
+            <PanelHeader right={
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <input value={queryDomain} onChange={e => setQueryDomain(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleResolve()}
+                  placeholder="Resolve domain..."
+                  style={{
+                    background: '#000', border: '1px solid #333', color: '#00f3ff',
+                    padding: '4px 10px', fontSize: '10px', fontFamily: 'monospace', outline: 'none',
+                    borderRadius: '6px', width: '160px',
+                  }} />
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleResolve}
+                  style={{
+                    background: '#2563eb', border: 'none', color: '#fff', padding: '4px 10px',
+                    fontSize: '9px', fontWeight: 700, borderRadius: '6px', cursor: 'pointer',
+                    fontFamily: "'Orbitron', sans-serif",
+                  }}>🔍</motion.button>
+              </div>
+            }>Resolution Flow Path</PanelHeader>
+            <FlowVisualization records={records} queryResult={queryResult} querying={querying} />
+          </div>
 
-              {records.filter(r => r.mode === 'redirect').length > 0 && (
-                <>
-                  <div className="text-[10px] text-slate-600 uppercase font-semibold mt-3 mb-1">Redirect Records</div>
-                  {records.filter(r => r.mode === 'redirect').map(r => <LiveResolution key={r.domain} {...r} />)}
-                </>
-              )}
+          {/* ── Right: Telemetry ── */}
+          <TelemetryPanel records={records} queryResult={queryResult} />
 
-              {records.filter(r => r.mode === 'static').length > 0 && (
-                <>
-                  <div className="text-[10px] text-slate-600 uppercase font-semibold mt-3 mb-1">Static Records</div>
-                  {records.filter(r => r.mode === 'static').map(r => <LiveResolution key={r.domain} {...r} />)}
-                </>
-              )}
-            </div>
-          </motion.div>
-          <motion.div custom={4} initial="hidden" animate="visible" variants={sV}
-            className="bg-bg-card border border-slate-700/30 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500" />DNS Query Log
-              </h2>
-              <button onClick={async () => { await fetch(`${API}/dns-logs/clear`, { method: 'POST' }); setLogs([]); }}
-                className="text-[10px] text-slate-600 hover:text-slate-400">Clear</button>
-            </div>
-            <DnsQueryLog logs={logs} />
-          </motion.div>
+          {/* ── Bottom-left (spans 2 cols): Node Record Topology ── */}
+          <div style={{ gridColumn: 'span 2' }}>
+            <NodeTopologyTable
+              records={records}
+              onDelete={handleDelete}
+              onEdit={(r) => { setEditRecord(r); setActiveFormTab(r.mode === 'redirect' ? 'redirect' : 'ip'); }}
+              onInstantUpdate={handleInstantUpdate}
+              activeTab={activeTableTab}
+              setActiveTab={setActiveTableTab}
+            />
+          </div>
+
+          {/* ── Bottom-right: Threat Stream Log ── */}
+          <ThreatStreamLog logs={logs} onClear={handleClearLogs} />
         </div>
-      </main>
+      </div>
     </div>
   );
 }

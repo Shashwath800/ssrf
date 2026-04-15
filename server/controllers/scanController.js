@@ -2,12 +2,14 @@
  * Scan Controller
  * 
  * Uses the ssrf-shield package for SSRF defense pipeline.
+ * Records every scan in the SQLite database for history & analytics.
  */
 
 const SSRFShield = require('ssrf-shield');
 const dnsStore = require('../engine/dnsStore');
 const { dispatchAlert } = require('../routes/webhook');
 const { emitEvent } = require('../engine/eventStore');
+const db = require('../db');
 
 // Regex to detect if a hostname is already a raw IP address
 const IP_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
@@ -63,6 +65,7 @@ async function scanUrl(req, res) {
   res.write(`data: ${JSON.stringify({ type: 'start', url })}\n\n`);
 
   const clientIP = req.ip || req.connection?.remoteAddress || "unknown";
+  const scanStartTime = Date.now();
 
   // Emit scan start event
   emitEvent({
@@ -111,6 +114,22 @@ async function scanUrl(req, res) {
       }
     }
   });
+
+  const duration_ms = Date.now() - scanStartTime;
+
+  // ── Record scan in SQLite database ──
+  try {
+    const blockedStep = result.steps.find(s => s.status === 'BLOCK');
+    db.insertScan({
+      url,
+      status: result.status === 'BLOCKED' ? 'BLOCKED' : 'PASS',
+      blocked_at_step: blockedStep ? blockedStep.step : null,
+      timestamp: new Date().toISOString(),
+      duration_ms,
+    });
+  } catch (dbErr) {
+    console.error('Failed to record scan in database:', dbErr.message);
+  }
 
   // Emit scan complete event
   emitEvent({

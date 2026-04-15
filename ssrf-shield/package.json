@@ -1,17 +1,28 @@
 {
   "name": "ssrf-shield",
   "version": "1.0.0",
-  "description": "A modular SSRF (Server-Side Request Forgery) defense engine. Provides a configurable pipeline of validation steps to detect and block SSRF attacks including DNS rebinding, AWS metadata access, and private IP targeting.",
+  "description": "A modular SSRF (Server-Side Request Forgery) defense engine. Provides a configurable 13-layer pipeline of validation steps to detect and block SSRF attacks including DNS rebinding, AWS metadata access, IPv6 bypasses, and private IP targeting.",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "jest --forceExit --detectOpenHandles"
+  },
   "keywords": [
     "ssrf",
     "security",
-    "server-side-request-forgery",
+    "nodejs",
+    "firewall",
     "dns-rebinding",
+    "server-side-request-forgery",
     "aws-metadata",
     "ip-validation",
     "defense",
-    "firewall"
+    "ipv6"
   ],
   "author": "",
   "license": "MIT",
@@ -19,5 +30,8 @@
     "index.js",
     "lib/",
     "README.md"
-  ]
+  ],
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
 }
