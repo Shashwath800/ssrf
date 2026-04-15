@@ -217,19 +217,20 @@ export default function PipelineSVG({ steps = [], isRunning = false }) {
                   <motion.div key={i} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.06 }}
                     className="bg-bg-primary/50 rounded-lg p-3 border border-slate-700/30">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded ${
                         detail.status === 'PASS' ? 'bg-green-500/20 text-green-400' :
                         detail.status === 'BLOCK' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
                       }`}>{detail.status}</span>
                       <span className="text-xs text-slate-400">{detail.step}</span>
                     </div>
-                    {detail.reason && <p className="text-xs text-red-400 mt-1">⚠ {detail.reason}</p>}
-                    {detail.data && (
-                      <pre className="text-xs text-slate-300 mt-1 font-mono overflow-x-auto max-h-32 overflow-y-auto">
-                        {JSON.stringify(detail.data, null, 2)}
-                      </pre>
+                    {detail.reason && (
+                      <p className="text-xs text-red-400 mt-1 mb-2 flex items-start gap-1.5">
+                        <span className="shrink-0 mt-0.5">⚠</span>
+                        <span>{detail.reason}</span>
+                      </p>
                     )}
+                    <DetailExplanation detail={detail} />
                   </motion.div>
                 ))
               ) : (
@@ -239,6 +240,123 @@ export default function PipelineSVG({ steps = [], isRunning = false }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function DetailExplanation({ detail }) {
+  const [aiExplanation, setAiExplanation] = React.useState('');
+  const [aiLoading, setAiLoading] = React.useState(true);
+  const [aiError, setAiError] = React.useState('');
+
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchAi = async () => {
+      setAiLoading(true);
+      setAiError('');
+      try {
+        const res = await fetch('http://localhost:4000/api/explain-step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            step: detail.step,
+            status: detail.status,
+            reason: detail.reason,
+            data: detail.data
+          })
+        });
+        if (!res.ok) throw new Error('AI request failed');
+        const json = await res.json();
+        if (mounted) setAiExplanation(json.explanation);
+      } catch (err) {
+        if (mounted) setAiError(err.message);
+      } finally {
+        if (mounted) setAiLoading(false);
+      }
+    };
+    fetchAi();
+    return () => { mounted = false; };
+  }, [detail]);
+
+  const d = detail.data;
+  if (!d) return null;
+
+  const lines = [];
+
+  // URL Normalizer
+  if (d.original) lines.push({ label: 'Original URL', value: d.original });
+  if (d.normalized) lines.push({ label: 'Normalized', value: d.normalized });
+  if (d.hostname) lines.push({ label: 'Hostname', value: d.hostname });
+  if (d.protocol) lines.push({ label: 'Protocol', value: d.protocol });
+  if (d.port) lines.push({ label: 'Port', value: d.port });
+
+  // DNS
+  if (d.resolvedIPs) lines.push({ label: 'Resolved IPs', value: d.resolvedIPs.join(', '), highlight: true });
+  if (d.source) lines.push({ label: 'DNS Source', value: d.source });
+  if (d.redirectTarget) lines.push({ label: 'Redirect Target', value: d.redirectTarget, danger: true });
+
+  // IP Validator
+  if (d.validatedIPs) lines.push({ label: 'Validated IPs', value: d.validatedIPs.join(', ') });
+  if (d.blockedIPs && d.blockedIPs.length > 0) lines.push({ label: 'Blocked IPs', value: d.blockedIPs.join(', '), danger: true });
+
+  // IP Locking
+  if (d.lockedIP) lines.push({ label: 'Locked IP', value: d.lockedIP, highlight: true });
+
+  // Redirect
+  if (d.statusCode) lines.push({ label: 'HTTP Status', value: d.statusCode });
+  if (d.url) lines.push({ label: 'Target URL', value: d.url });
+  if (d.redirectsFollowed !== undefined) lines.push({ label: 'Redirects Followed', value: d.redirectsFollowed });
+
+  // Fetch
+  if (d.responseBody) lines.push({ label: 'Response Body', value: d.responseBody.substring(0, 120) + (d.responseBody.length > 120 ? '...' : '') });
+  if (d.latencyMs) lines.push({ label: 'Latency', value: `${d.latencyMs}ms` });
+  if (d.bodySize) lines.push({ label: 'Body Size', value: `${d.bodySize} bytes` });
+
+  // Note (generic explanation)
+  if (d.note) lines.push({ label: 'Internal Note', value: d.note, isNote: true });
+
+  return (
+    <div className="mt-2 space-y-3">
+      {/* AI Explanation Box */}
+      <div className="bg-slate-900/80 rounded border border-indigo-500/30 p-3 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-500"></div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-indigo-400 text-xs font-bold flex items-center gap-1.5">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            Ollama AI Analysis
+          </span>
+        </div>
+        
+        {aiLoading ? (
+          <div className="flex items-center gap-2 text-slate-400 text-xs animate-pulse">
+            <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
+            Generating explanation...
+          </div>
+        ) : aiError ? (
+          <div className="text-red-400/80 text-xs">⚠️ AI Agent Offline: {aiError}</div>
+        ) : (
+          <div className="text-slate-300 text-xs leading-relaxed">
+            {aiExplanation}
+          </div>
+        )}
+      </div>
+
+      {/* Raw Data Points */}
+      {lines.length > 0 && (
+        <div className="space-y-1.5 bg-black/20 rounded p-2 border border-slate-800/50">
+          {lines.map((line, i) => (
+            <div key={i} className="flex items-start gap-2 text-[11px]">
+              <span className="text-slate-500 shrink-0 min-w-[90px] text-right font-medium">{line.label}:</span>
+              <span className={`font-mono break-all ${
+                line.danger ? 'text-red-400 font-bold' :
+                line.highlight ? 'text-indigo-300 font-semibold' :
+                line.isNote ? 'text-slate-400 italic' :
+                'text-slate-300'
+              }`}>{line.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
